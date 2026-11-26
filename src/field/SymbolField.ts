@@ -45,8 +45,8 @@ interface Glyph {
 const FONT_STACK =
   '"Latin Modern Math", "Cambria Math", "STIX Two Math", "TeX Gyre Pagella", "Noto Serif", "Times New Roman", serif';
 
-/** 符号颜色：博客主色系的深紫，配低不透明度叠在浅紫白底上 */
-const INK = '111, 53, 176';
+/** 符号颜色：深蓝墨，配低不透明度叠在冷白底上 */
+const INK = '27, 95, 168';
 
 export interface SymbolFieldOptions {
   /** 画布元素 */

@@ -41,8 +41,8 @@ body {
     ),
     radial-gradient(
       circle at 50% 100%,
-      rgba(181, 123, 238, 0.1) 0%,
-      rgba(181, 123, 238, 0) 55%
+      rgba(28, 111, 196, 0.1) 0%,
+      rgba(28, 111, 196, 0) 55%
     );
   pointer-events: none;
   z-index: 0;
@@ -79,7 +79,7 @@ body {
      下方只留 0.04em —— 字形自带下降部空白，再多就会把副标题推远。 */
   padding: 0.1em 0.06em 0.04em;
 
-  /* 渐变字：与博客标题同一套「粉 → 紫 → 蓝」 */
+  /* 渐变字：亮蓝 → 靛蓝 → 深海军蓝，由 tokens.css 的 --bm-gradient-title 定义 */
   background: var(--bm-gradient-title);
   background-size: 180% 100%;
   background-position: 0% 50%;
@@ -97,7 +97,7 @@ body {
 /* 渐变裁剪在部分浏览器里会丢掉文字阴影，用 filter 补一层极淡的光晕，
    让花体在浅底上更立得住 */
 .hero__title {
-  filter: drop-shadow(0 0.04em 0.09em rgba(111, 53, 176, 0.16));
+  filter: drop-shadow(0 0.04em 0.09em rgba(28, 111, 196, 0.18));
 }
 
 .hero__subtitle {
@@ -135,7 +135,7 @@ body {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(111, 53, 176, 0.28),
+    rgba(28, 111, 196, 0.3),
     transparent
   );
 }
