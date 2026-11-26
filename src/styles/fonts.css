@@ -1,0 +1,17 @@
+/**
+ * 自托管字体
+ *
+ * Send Flowers：与博客（MyHomeWeb）英文标题同一款手写花体，
+ * latin 子集 woff2 直接从那边拷过来，保证两站标题是同一笔迹。
+ *
+ * font-display: swap —— 字体没到之前先按兜底手写体渲染，避免标题空白。
+ * 225 个字符串、32KB，只用在标题和一处副标题上，没必要再裁剪。
+ */
+
+@font-face {
+  font-family: 'Send Flowers';
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/send-flowers-latin.woff2') format('woff2');
+}

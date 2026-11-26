@@ -1,0 +1,222 @@
+/**
+ * 首页布局
+ *
+ * 单屏结构：标题居中在视口正中，页脚贴着底部。整页不滚动，
+ * 所以尺寸全部用 dvh 而不是 vh —— 移动端地址栏收起时 vh 会跳。
+ */
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: grid;
+  /* 三行：上留白 / 标题 / 页脚。上留白与页脚等高，标题才是光学居中 */
+  grid-template-rows: 1fr auto 1fr;
+  justify-items: center;
+  overflow: hidden;
+  font-family: var(--bm-font-sans);
+  color: var(--bm-text);
+  background-color: var(--bm-canvas);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ── 背景画布 ─────────────────────────────────────────────
+   铺满视口、压在内容之下，且不吃指针事件（否则会挡住标题上的交互） */
+#symbol-field {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  /* 上下各压一层极淡的径向光，让画面中心更亮、四角更沉，符号不会显得糊平 */
+  background:
+    radial-gradient(
+      circle at 50% 42%,
+      rgba(255, 255, 255, 0.9) 0%,
+      rgba(255, 255, 255, 0) 62%
+    ),
+    radial-gradient(
+      circle at 50% 100%,
+      rgba(181, 123, 238, 0.1) 0%,
+      rgba(181, 123, 238, 0) 55%
+    );
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── 标题区 ───────────────────────────────────────────── */
+
+.hero {
+  grid-row: 2;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.85rem, 2.4vh, 1.6rem);
+  padding-inline: 1.25rem;
+  text-align: center;
+  /* 内容靠下一点点更稳（视觉重心比几何中心低） */
+  transform: translateY(-2.5vh);
+}
+
+.hero__title {
+  margin: 0;
+  /* 花体字的字号要偏大才看得清笔画。
+     字串「BetterMath」在这个字体里约 4.31em 宽，所以字号直接决定占屏比例：
+     19vw 让窄屏横向铺到 ~86%，28vh 管住矮窗口（不至于顶出屏幕），
+     两者取小后再由 clamp 夹住上下限。 */
+  font-family: var(--bm-font-display);
+  font-weight: 400;
+  font-size: clamp(3rem, min(19vw, 28vh), 17rem);
+  line-height: 1;
+  letter-spacing: 0.012em;
+  /* 花体上下伸出较多，给一点内边距免得笔画被裁。
+     下方只留 0.04em —— 字形自带下降部空白，再多就会把副标题推远。 */
+  padding: 0.1em 0.06em 0.04em;
+
+  /* 渐变字：与博客标题同一套「粉 → 紫 → 蓝」 */
+  background: var(--bm-gradient-title);
+  background-size: 180% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+
+  /* 入场：淡入 + 轻微上浮，然后缓慢流光 */
+  animation:
+    bm-title-in var(--bm-duration-enter) var(--bm-ease-out) both,
+    bm-title-sheen 14s ease-in-out 1s infinite alternate;
+}
+
+/* 渐变裁剪在部分浏览器里会丢掉文字阴影，用 filter 补一层极淡的光晕，
+   让花体在浅底上更立得住 */
+.hero__title {
+  filter: drop-shadow(0 0.04em 0.09em rgba(111, 53, 176, 0.16));
+}
+
+.hero__subtitle {
+  margin: 0;
+  font-size: clamp(0.85rem, 1.6vw, 1.05rem);
+  font-weight: 500;
+  line-height: 1.6;
+  letter-spacing: 0.34em;
+  /* 字距把最后一个字后面也撑开了，补一份同样的右边距让整体回正 */
+  text-indent: 0.34em;
+  color: var(--bm-text-muted);
+  animation: bm-fade-up var(--bm-duration-enter) var(--bm-ease-out) 0.18s both;
+}
+
+/* ── 页脚 ─────────────────────────────────────────────── */
+
+.site-foot {
+  grid-row: 3;
+  align-self: end;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: clamp(0.6rem, 1.6vw, 1.1rem);
+  padding-bottom: clamp(1.1rem, 3.5vh, 2.4rem);
+  font-size: 0.78rem;
+  letter-spacing: 0.16em;
+  color: var(--bm-text-muted);
+  animation: bm-fade-up var(--bm-duration-enter) var(--bm-ease-out) 0.36s both;
+}
+
+.site-foot__rule {
+  width: clamp(1.4rem, 4vw, 3rem);
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(111, 53, 176, 0.28),
+    transparent
+  );
+}
+
+/* ── 动画 ─────────────────────────────────────────────── */
+
+@keyframes bm-title-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.16em) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes bm-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(0.7em);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 流光：背景渐变缓慢横移，字的形状不变，只是高光在走 */
+@keyframes bm-title-sheen {
+  from {
+    background-position: 0% 50%;
+  }
+  to {
+    background-position: 100% 50%;
+  }
+}
+
+/* 减少动效：入场瞬时完成，流光停在中间不跑 */
+@media (prefers-reduced-motion: reduce) {
+  .hero__title {
+    animation: none;
+    background-position: 50% 50%;
+    opacity: 1;
+    transform: none;
+  }
+
+  .hero__subtitle,
+  .site-foot {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ── 窄屏与矮屏微调 ───────────────────────────────────── */
+
+@media (max-width: 30rem) {
+  .hero {
+    gap: 0.7rem;
+    transform: translateY(-1.5vh);
+  }
+
+  .hero__subtitle {
+    letter-spacing: 0.26em;
+    text-indent: 0.26em;
+  }
+
+  .site-foot {
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+  }
+}
+
+/* 横屏手机：高度只有 400 出头，按 vh 收标题，页脚也压紧 */
+@media (max-height: 30rem) {
+  .hero {
+    transform: translateY(-1vh);
+  }
+
+  .site-foot {
+    padding-bottom: 0.85rem;
+  }
+}

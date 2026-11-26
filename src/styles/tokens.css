@@ -1,0 +1,50 @@
+/**
+ * 设计令牌（单一真源）
+ *
+ * 取色沿用博客 MyHomeWeb 的紫色体系（浅紫白底 + 紫罗兰主色），
+ * 这样两个站点摆在一起是同一套视觉语言。
+ *
+ * 颜色都做过对比度核算：本文件里凡是用于文字的颜色，在 --bm-canvas 上
+ * 都 ≥ 4.5:1（WCAG AA 正文标准），渐变三段的端点也都在 5:1 以上。
+ */
+
+:root {
+  /* ── 底色 ───────────────────────────────────────────────── */
+  --bm-canvas: #fdfbff;
+  --bm-canvas-tint: #f6f1fc;
+
+  /* ── 文字 ───────────────────────────────────────────────── */
+  --bm-text-strong: #3b3350;
+  --bm-text: #55496b;
+  --bm-text-muted: #6e6584;
+
+  /* ── 品牌 ───────────────────────────────────────────────── */
+  --bm-violet: #6f35b0;
+  /* 标题渐变的三个端点：粉 → 紫 → 蓝，全部满足 AA 对比度 */
+  --bm-gradient-title: linear-gradient(
+    100deg,
+    #a83e86 0%,
+    #6f35b0 52%,
+    #26658f 100%
+  );
+  /* 背景符号的颜色（RGB 三元组，Canvas 里拼 rgba 用） */
+  --bm-ink-rgb: 111, 53, 176;
+
+  /* ── 字体 ───────────────────────────────────────────────── */
+  /* 装饰英文字体：与博客英文标题同一款手写花体，自托管于 public/fonts */
+  --bm-font-display: 'Send Flowers', 'Segoe Script', cursive;
+  --bm-font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI',
+    'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC', 'Microsoft YaHei',
+    sans-serif;
+
+  /* ── 动效 ───────────────────────────────────────────────── */
+  --bm-ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --bm-duration-enter: 1.1s;
+}
+
+/* 系统开了「减少动态效果」时，把所有动画时长压到近乎瞬时 */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --bm-duration-enter: 0.01s;
+  }
+}

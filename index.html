@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>BetterMath · 数学可视化</title>
+    <meta
+      name="description"
+      content="BetterMath —— 用图形、动画与交互把抽象的数学画出来。"
+    />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/send-flowers-latin.woff2" crossorigin />
+    <script type="module" src="/src/main.ts"></script>
+  </head>
+  <body>
+    <!-- 背景符号场：纯装饰，对辅助技术隐藏 -->
+    <canvas id="symbol-field" aria-hidden="true"></canvas>
+
+    <main class="hero">
+      <h1 class="hero__title">BetterMath</h1>
+      <p class="hero__subtitle">数学可视化</p>
+    </main>
+
+    <footer class="site-foot">
+      <span class="site-foot__rule" aria-hidden="true"></span>
+      <span>把抽象的形状画出来</span>
+      <span class="site-foot__rule" aria-hidden="true"></span>
+    </footer>
+  </body>
+</html>
