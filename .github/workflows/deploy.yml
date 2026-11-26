@@ -22,9 +22,11 @@
 
 name: Deploy BetterMath
 
+# 2026-11-27：服务器上的 self-hosted runner 已撤除（各约 50 MB 常驻内存，
+# 1.6 GiB 的小机器吃不消），部署改为本地手动执行 scripts/deploy.sh。
+# 这里只保留手动触发，避免 push 产生永远排队、无人执行的 job；
+# 如将来恢复 CI，把 push 触发加回并重新注册 runner 即可。
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:

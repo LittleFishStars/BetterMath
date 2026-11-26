@@ -3,12 +3,11 @@
 #
 #   bash scripts/deploy.sh
 #
-# 与博客（MyHomeWeb）同一套落地方式，区别只在触发点：博客由服务器上的
-# self-hosted runner 在 push 后自己构建，本机这台 1.6 GiB 的机器不必再挂
-# 一个 runner 常驻进程，所以 BetterMath 走「本地构建 + rsync」。
+# 与博客（MyHomeWeb）同一套落地方式：两者都走「本地构建 + rsync」。
+# 服务器上的 self-hosted runner 已于 2026-11-27 撤除（省约 100 MB 常驻内存）。
 # 服务器侧只有两个静态要素，改它们不用跑本脚本：
-#   /etc/nginx/sites-available/math.ylxc.top   （仓库内副本：deploy/math.ylxc.top）
-#   /etc/nginx/ssl/math.{fullchain.crt,key}    （acme.sh DNS-01，自动续期）
+#   /etc/caddy/sites/41-math.caddy             （Caddy 站点配置，改动后自动 reload）
+#   /etc/nginx/ssl/math.{fullchain.crt,key}    （acme.sh DNS-01 签发，路径沿用旧目录名）
 #
 # 环境变量可覆盖：
 #   DEPLOY_HOST    默认 172.24.0.1（easytier 内网；公网 22 端口在 kex 阶段就被关）
