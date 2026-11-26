@@ -119,19 +119,46 @@ mask-image: radial-gradient(circle at 50% 100%,
 ## 部署
 
 线上地址 **[math.ylxc.top](https://math.ylxc.top/)**，跑在 YlxcServer（与博客同一台机器、同一套
-Cloudflare → nginx 回源），方式是「本地构建 + rsync 镜像」：
+Cloudflare → nginx 回源）。
+
+### push 即部署（CI，当前主路径）
+
+`.github/workflows/deploy.yml` 跑在服务器本机的自托管 runner 上：
+checkout → npm ci → build → 产物闸门 → `rsync --delete` → 源站自检。
+推 `main` 即自动发布。
 
 ```bash
-bash scripts/deploy.sh          # 构建 → 产物闸门 → rsync --delete → 源站健康检查
+git push origin main      # 触发部署
+gh run list --repo LittleFishStars/BetterMath
 ```
 
-服务器侧布局：
+### 本地手动发布（应急）
+
+```bash
+bash scripts/deploy.sh    # 构建 → 产物闸门 → rsync --delete → 源站健康检查
+```
+
+### 服务器侧布局
 
 | 项 | 位置 |
 | --- | --- |
-| docroot | `/var/www/bettermath`（`root:www-data`，脚本里 `--chmod=D755,F644`） |
+| runner 实例 | `/opt/actions-runner-bettermath`，systemd 单元 `actions.runner.bettermath.YlxcServer-bettermath.service` |
+| runner 标签 | `bettermath-deploy`（博客的 `myhomeweb-deploy` 是另一个实例，互不干扰） |
+| docroot | `/var/www/bettermath`，属主 `ghrunner`（runner 写）/ `www-data`（nginx 读） |
 | nginx 站点 | `/etc/nginx/sites-available/math.ylxc.top`，仓库内副本见 [deploy/math.ylxc.top](deploy/math.ylxc.top) |
 | 证书 | `/etc/nginx/ssl/math.{fullchain.crt,key}`，acme.sh DNS-01（`dns_cf`, EC-256），自动续期 |
+
+### 关于「一个 runner 管所有站点」
+
+GitHub **没有个人账号级 runner**：`POST /user/runners/registration-token` 与
+`GET /user/runners` 都返回 404，runner 本体 `config.sh --url https://github.com/<账号>`
+也会被 `POST /api.github.com/actions/runner-registration` 拒掉。能服务多个仓库的
+唯一作用域是**组织级** runner（需组织 admin + token 带 `admin:org` scope）。
+
+因此本仓库采用**同机双实例**：博客用 `/opt/actions-runner`（标签 `myhomeweb-deploy`），
+本仓库用 `/opt/actions-runner-bettermath`（标签 `bettermath-deploy`）。两个实例共用同一份
+runner 二进制，各自独立目录与 systemd 单元，互不影响；常驻内存各约 25 MB，
+机器 1.6 GiB 撑得住。构建期才是内存大头，所以两边 workflow 都用 `concurrency` 串行。
 
 几条约定：
 
