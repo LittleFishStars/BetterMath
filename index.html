@@ -18,7 +18,13 @@
 
     <main class="hero">
       <h1 class="hero__title">BetterMath</h1>
-      <p class="hero__subtitle">数学可视化</p>
+      <!-- 悬停时从下边缘中点扩散一个圆，把「数学可视化」擦成「开始探索」。
+           两层文字各自被互补的圆形遮罩裁掉一半，任何时刻只有一层可见，
+           所以不会出现两层叠在一起、笔画打架的情况。 -->
+      <button class="hero__cta" type="button" aria-label="开始探索">
+        <span class="hero__cta__idle" aria-hidden="true">数学可视化</span>
+        <span class="hero__cta__hover" aria-hidden="true">开始探索</span>
+      </button>
     </main>
 
     <footer class="site-foot">
