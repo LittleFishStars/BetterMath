@@ -22,6 +22,11 @@
            两层文字各自被互补的圆形遮罩裁掉一半，任何时刻只有一层可见，
            所以不会出现两层叠在一起、笔画打架的情况。 -->
       <button class="hero__cta" type="button" aria-label="开始探索">
+        <!-- 光晕层：与「数学可视化」同文同位，文字本身透明、只留一圈柔光，
+             呼吸式明暗变化，暗示这行字可以点。
+             它是独立的一层，不参与下面那对圆形遮罩 —— 遮罩会连光晕一起切，
+             扫过时边缘就变成一条硬线而不是柔和的晕。 -->
+        <span class="hero__cta__halo" aria-hidden="true">数学可视化</span>
         <span class="hero__cta__idle" aria-hidden="true">数学可视化</span>
         <span class="hero__cta__hover" aria-hidden="true">开始探索</span>
       </button>

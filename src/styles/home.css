@@ -163,7 +163,8 @@ body {
 }
 
 .hero__cta__idle,
-.hero__cta__hover {
+.hero__cta__hover,
+.hero__cta__halo {
   grid-area: label;
   font: inherit;
   white-space: nowrap;
@@ -177,6 +178,29 @@ body {
   /* 0.61em 是实测扫出来的：两层宽度差 0.2px，视觉上就是等宽 */
   letter-spacing: 0.61em;
   text-indent: 0.61em;
+}
+
+/* ── 呼吸光晕 ─────────────────────────────────────────
+   文字本身透明（color: transparent），只靠 text-shadow 撑出一圈柔光。
+   用 text-shadow 而不是 outline / box-shadow：按钮没有边框和背景，
+   光晕要贴着笔画走，描边类的方案会画出一个跟文字不符的方框。
+
+   三层光晕叠加：内层小而亮、外层大而淡 —— 只有一层的话，
+   要么太薄看不出是「光」，要么太散变成一团雾。
+
+   字距与 text-indent 要跟着按钮走（这里显式写一遍，不依赖继承）：
+   光晕层与「数学可视化」同文同位，两者一旦错开，
+   光晕就会偏到文字旁边，变成一块没有来由的亮斑。 */
+.hero__cta__halo {
+  color: transparent;
+  letter-spacing: inherit;
+  text-indent: inherit;
+  text-shadow:
+    0 0 0.35em rgba(28, 111, 196, 0.55),
+    0 0 1.1em rgba(28, 111, 196, 0.35),
+    0 0 2.2em rgba(28, 111, 196, 0.18);
+  /* 呼吸：4 秒一轮，明暗各占一半，缓入缓出像真的在「呼吸」 */
+  animation: bm-cta-breathe 4s ease-in-out infinite;
 }
 
 /* 圆外可见：从 0 到 --reveal 透明，之后不透明 */
@@ -204,6 +228,14 @@ body {
   .hero__cta:hover {
     --reveal: 105%;
   }
+
+  /* 悬停后文字换成了「开始探索」，「数学可视化」的光晕就成了错位的鬼影，
+     淡出掉。
+     这里必须用 animation 而不是 transition：呼吸动画已经把 opacity 接管了，
+     transition 改不动它。换成一条「淡出到 0 并停住」的动画即可。 */
+  .hero__cta:hover .hero__cta__halo {
+    animation: bm-cta-fade-out 260ms ease-out forwards;
+  }
 }
 
 /* 键盘聚焦也要能看见同样的反馈，否则这个按钮对键盘用户等于没有状态 */
@@ -223,6 +255,12 @@ body {
   .hero__cta:hover,
   .hero__cta:focus-visible {
     --reveal: 105%;
+  }
+
+  /* 不做呼吸，也不做淡出：直接藏掉光晕层 */
+  .hero__cta__halo {
+    animation: none;
+    opacity: 0;
   }
 }
 
@@ -289,6 +327,37 @@ body {
   }
   to {
     background-position: 100% 50%;
+  }
+}
+
+/* 光晕呼吸：透明度与模糊半径同步起伏。
+   只改透明度的话，光晕的「半径」不变，看着像亮度在闪；
+   模糊半径一起变，才是真正的「一团光在呼吸」。 */
+@keyframes bm-cta-breathe {
+  0%,
+  100% {
+    opacity: 0.5;
+    text-shadow:
+      0 0 0.3em rgba(28, 111, 196, 0.45),
+      0 0 0.95em rgba(28, 111, 196, 0.26),
+      0 0 1.9em rgba(28, 111, 196, 0.12);
+  }
+  50% {
+    opacity: 1;
+    text-shadow:
+      0 0 0.45em rgba(28, 111, 196, 0.72),
+      0 0 1.35em rgba(28, 111, 196, 0.46),
+      0 0 2.7em rgba(28, 111, 196, 0.24);
+  }
+}
+
+/* 悬停时的淡出：光晕退场，与扩散同步 */
+@keyframes bm-cta-fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 

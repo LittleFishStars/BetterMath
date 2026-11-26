@@ -4,7 +4,8 @@
 
 ## 首页
 
-- **按钮**：标题下方那行字默认是「数学可视化」，外观与原副标题完全一致；
+- **按钮**：标题下方那行字默认是「数学可视化」，外观与原副标题完全一致，
+  外面笼着一圈**呼吸光晕**（4 秒一轮，明暗与模糊半径同步起伏）暗示可点击；
   悬停（或键盘聚焦）时从**下边缘中点**扩散一个圆，扫过之处把文字换成「开始探索」。
 - **标题**：`BetterMath`，居中，使用与博客 [MyHomeWeb](../MyHomeWeb) 英文标题同一款手写花体
   **Send Flowers**（`public/fonts/send-flowers-latin.woff2`，自托管，latin 子集 32KB）。
@@ -75,9 +76,26 @@ mask-image: radial-gradient(circle at 50% 100%,
    宽度不一时圆扫过去是新旧字互相穿插（实测看起来像「数[f 始 探 化」）。
    把新文字的字距调到 0.61em，两段总宽都是约 118px，边界才是整齐推开。
 
+### 呼吸光晕
+
+光晕是**独立的一层**（`.hero__cta__halo`），与「数学可视化」同文同位，
+文字本身 `color: transparent`，全靠 `text-shadow` 撑出光来。
+
+三点讲究：
+
+1. **用 `text-shadow` 而不是 `outline`/`box-shadow`**。按钮没有边框和背景，
+   光要贴着笔画走；描边类方案会画出一个跟文字形状不符的方框。
+2. **光晕不参与那对圆形遮罩**。遮罩会把光晕一起切，扫过时边缘变成一条
+   硬线而不是柔和的晕 —— 所以它是单独的第三层。
+3. **淡出用 `animation` 而不是 `transition`**。呼吸动画已经接管了 `opacity`，
+   `transition` 改不动它；悬停时改用一条 `bm-cta-fade-out` 动画才生效。
+
+光晕与文字的宽度差实测为 0px（`letter-spacing`/`text-indent` 显式跟随按钮）。
+
 按钮还有几条行为约束：`:hover` 只在 `(hover: hover) and (pointer: fine)`
 的设备启用（触屏上 `:hover` 会粘住不还原）；`:focus-visible` 触发同样的效果，
-否则键盘用户看不到任何状态；`prefers-reduced-motion` 下不做过渡、直接切换。
+否则键盘用户看不到任何状态；`prefers-reduced-motion` 下不做过渡、直接切换，
+光晕也不呼吸。
 
 ## 为什么背景不响应鼠标
 
