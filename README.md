@@ -4,6 +4,8 @@
 
 ## 首页
 
+- **按钮**：标题下方那行字默认是「数学可视化」，外观与原副标题完全一致；
+  悬停（或键盘聚焦）时从**下边缘中点**扩散一个圆，扫过之处把文字换成「开始探索」。
 - **标题**：`BetterMath`，居中，使用与博客 [MyHomeWeb](../MyHomeWeb) 英文标题同一款手写花体
   **Send Flowers**（`public/fonts/send-flowers-latin.woff2`，自托管，latin 子集 32KB）。
 - **背景**：Canvas 上的动态数学元素场，混排两类内容——
@@ -46,6 +48,36 @@ public/fonts/           Send Flowers woff2
 - 标题字号 `clamp(3rem, min(19vw, 28vh), 17rem)`：`19vw` 让窄屏横向铺到约 86%，
   `28vh` 管住矮窗口。字体里 `BetterMath` 约 4.31em 宽，改字串后要重新核这个系数。
 - 单屏不滚动，尺寸一律用 `dvh` 不用 `vh`（移动端地址栏收起时 `vh` 会跳）。
+
+## 圆形擦除的实现
+
+按钮里叠了**两层文字**，各自被互补的圆形遮罩裁切：
+
+```css
+/* 「数学可视化」：圆外可见 */
+mask-image: radial-gradient(circle at 50% 100%,
+  #0000 var(--reveal), #000 calc(var(--reveal) + 1px));
+
+/* 「开始探索」：圆内可见（与上面互补，交界处留 1px 压锯齿） */
+mask-image: radial-gradient(circle at 50% 100%,
+  #000 var(--reveal), #0000 calc(var(--reveal) + 1px));
+```
+
+`--reveal` 是半径，0% → 105%，圆的圆心固定在下边缘中点（`at 50% 100%`）。
+任何时刻只有一层可见，所以不会出现两层文字叠着、笔画打架。
+
+有两处不显眼但必须这么做：
+
+1. **`@property` 要 `inherits: true`**。自定义属性默认不能过渡，得注册成
+   `<percentage>` 才能动画；而遮罩写在子元素上、变量定义在按钮上，
+   若声明成 `inherits: false`，子元素读到的永远是初始值 0%，圆根本不长。
+2. **两层文字要等宽**。「开始探索」4 个字比「数学可视化」5 个字窄，
+   宽度不一时圆扫过去是新旧字互相穿插（实测看起来像「数[f 始 探 化」）。
+   把新文字的字距调到 0.61em，两段总宽都是约 118px，边界才是整齐推开。
+
+按钮还有几条行为约束：`:hover` 只在 `(hover: hover) and (pointer: fine)`
+的设备启用（触屏上 `:hover` 会粘住不还原）；`:focus-visible` 触发同样的效果，
+否则键盘用户看不到任何状态；`prefers-reduced-motion` 下不做过渡、直接切换。
 
 ## 为什么背景不响应鼠标
 
