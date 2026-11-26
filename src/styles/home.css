@@ -10,9 +10,20 @@ body {
   height: 100%;
 }
 
+/* 单屏页面不该出现滚动条。
+   dvh 与视口实际高度之间会有 1px 的亚像素差（900 vs 901），
+   不裁掉的话 html 上就多出一条滚动缝，页面右下角能看到滚动条。
+   body 上已经有 overflow: hidden，这里把 html 也裁上。 */
+html {
+  overflow: hidden;
+}
+
 body {
   margin: 0;
-  min-height: 100dvh;
+  /* 用 height 而不是 min-height：单屏不滚动，定高之后 grid 的 1fr 行
+     才按确定高度精确分配。用 min-height 时行高由内容撑开，
+     页脚会被推出去几个像素（实测 9px），html 上就多出一条滚动缝。 */
+  height: 100dvh;
   display: grid;
   /* 三行：上留白 / 标题 / 页脚。上留白与页脚等高，标题才是光学居中 */
   grid-template-rows: 1fr auto 1fr;
@@ -60,8 +71,10 @@ body {
   gap: clamp(0.85rem, 2.4vh, 1.6rem);
   padding-inline: 1.25rem;
   text-align: center;
-  /* 内容靠下一点点更稳（视觉重心比几何中心低） */
-  transform: translateY(-2.5vh);
+  /* 整体上移：标题居中时会显得偏下（页脚占了底部，视觉重心被拉低）。
+     上移 6vh 让标题落在视口偏上的位置，下方留给按钮和留白。
+     窄屏/矮屏在上下面的媒体查询里各有一档更小的取值。 */
+  transform: translateY(-6vh);
 }
 
 .hero__title {
@@ -136,7 +149,7 @@ body {
   border: 0;
   background: none;
   font-family: inherit;
-  font-size: clamp(0.85rem, 1.6vw, 1.05rem);
+  font-size: clamp(0.95rem, 1.75vw, 1.16rem);
   font-weight: 500;
   line-height: 1.6;
   letter-spacing: 0.34em;
@@ -161,7 +174,7 @@ body {
    这里把字距调大，让两段文字的总宽度相等 —— 定格在扩散中途时，
    圆的边界是整齐地往两边推开，而不是新旧字互相穿插。 */
 .hero__cta__hover {
-  /* 5 字宽 = 4 字宽 → 由 (5·(1+0.34)) = (4·(1+s)) + s 解得 s ≈ 0.61em */
+  /* 0.61em 是实测扫出来的：两层宽度差 0.2px，视觉上就是等宽 */
   letter-spacing: 0.61em;
   text-indent: 0.61em;
 }
@@ -254,10 +267,14 @@ body {
   }
 }
 
+/* 入场：只淡入 + 极轻微上浮。
+   早先用的是 translateY(0.7em) → translateY(0)，动画期间元素整体比最终
+   位置低那么多，页脚会探出视口底部 9px，html 上多出一条滚动缝。
+   现在位移小到 0.08em：视觉上仍有「浮起来」的感觉，又不会溢出。 */
 @keyframes bm-fade-up {
   from {
     opacity: 0;
-    transform: translateY(0.7em);
+    transform: translateY(0.08em);
   }
   to {
     opacity: 1;
@@ -297,12 +314,21 @@ body {
 @media (max-width: 30rem) {
   .hero {
     gap: 0.7rem;
-    transform: translateY(-1.5vh);
+    /* 窄屏上视口高度更富余，但标题占比也更大，上移量比桌面小一档 */
+    transform: translateY(-4vh);
   }
 
   .hero__cta {
     letter-spacing: 0.26em;
     text-indent: 0.26em;
+  }
+
+  /* 等宽关系要跟着重算。漏了这条，窄屏上圆扫过时新旧字会互相穿插。
+     0.51em 是实测扫出来的（不是按 1em/字严格算的）：中文字形的实际宽度
+     不正好等于 1em，纯公式会差 3.9px，而实测值把两层宽度对齐到 0.13px。 */
+  .hero__cta__hover {
+    letter-spacing: 0.51em;
+    text-indent: 0.51em;
   }
 
   .site-foot {
@@ -314,7 +340,8 @@ body {
 /* 横屏手机：高度只有 400 出头，按 vh 收标题，页脚也压紧 */
 @media (max-height: 30rem) {
   .hero {
-    transform: translateY(-1vh);
+    /* 横屏手机高度只有 400 出头，上移多了会顶到页头 */
+    transform: translateY(-2.5vh);
   }
 
   .site-foot {
