@@ -19,9 +19,17 @@ import { ALL_GROUPS, FORMULA_GROUP, between, type FieldGroup } from './symbols';
 
 /** 单个元素的状态 */
 interface Glyph {
-  /** 归一化坐标（0..1），与画布尺寸解耦，改窗口不用重排 */
+  /**
+   * 归一化基准坐标（0..1），与画布尺寸解耦，改窗口不用重排。
+   *
+   * 这是「家」，只在测量/重铺时改动；每帧的浮动偏移写进 rx/ry，
+   * 绝不回写到这里 —— 回写就是累加，元素会一路飘走。
+   */
   x: number;
   y: number;
+  /** 当前帧的渲染坐标 = 基准 + 浮动偏移 */
+  rx: number;
+  ry: number;
   /** 深度 0..1：越大越近，尺寸/速度/清晰度同步放大 */
   depth: number;
   /** 要画的文字：单个符号，或一截公式 */
@@ -38,9 +46,6 @@ interface Glyph {
   spin: number;
   /** 倾角摆动的中心值：每个元素围绕它左右摇，方向各不相同 */
   rotationHome: number;
-  /** 漂移速度（归一化单位/秒） */
-  vx: number;
-  vy: number;
   /** 浮动相位，让每个元素的正弦节奏错开，避免整片一起律动 */
   phase: number;
   /** 浮动频率（Hz） */
@@ -117,11 +122,6 @@ export class SymbolField {
   private height = 0;
   private baseSize = 24;
 
-  /** 指针在归一化坐标里的位置，理想状态由 lerp 逼近，形成拖尾感 */
-  private pointer = { x: 0.5, y: 0.5 };
-  private pointerSmooth = { x: 0.5, y: 0.5 };
-  private hasPointer = false;
-
   private rafId = 0;
   private lastTime = 0;
   private running = false;
@@ -139,7 +139,6 @@ export class SymbolField {
 
     this.resizeObserver = new ResizeObserver(() => this.measure());
 
-    this.handlePointerMove = this.handlePointerMove.bind(this);
     this.handleVisibility = this.handleVisibility.bind(this);
     this.tick = this.tick.bind(this);
   }
@@ -156,7 +155,6 @@ export class SymbolField {
       return;
     }
 
-    window.addEventListener('pointermove', this.handlePointerMove, { passive: true });
     this.running = true;
     this.lastTime = performance.now();
     this.rafId = requestAnimationFrame(this.tick);
@@ -168,7 +166,6 @@ export class SymbolField {
     cancelAnimationFrame(this.rafId);
     this.resizeObserver.disconnect();
     document.removeEventListener('visibilitychange', this.handleVisibility);
-    window.removeEventListener('pointermove', this.handlePointerMove);
   }
 
   /* ── 尺寸与重新铺元素 ─────────────────────────────── */
@@ -433,12 +430,13 @@ export class SymbolField {
     const depth = 0.18 + Math.random() * 0.82;
     const rotationHome = (Math.random() - 0.5) * 0.56;
 
-    // 深度越大速度越快：近处物体在视差里移动更明显
-    const speed = 0.004 + depth * 0.012;
-
+    const startX = Math.random();
+    const startY = Math.random();
     const glyph: Glyph = {
-      x: Math.random(),
-      y: Math.random(),
+      x: startX,
+      y: startY,
+      rx: startX,
+      ry: startY,
       depth,
       text,
       isFormula: group === FORMULA_GROUP,
@@ -450,12 +448,14 @@ export class SymbolField {
       // 公式用更小的角度：整行文字一歪就很明显，也影响阅读。
       rotation: group === FORMULA_GROUP ? rotationHome * 0.4 : rotationHome,
       rotationHome: group === FORMULA_GROUP ? rotationHome * 0.4 : rotationHome,
-      spin: (Math.random() - 0.52) * 0.1,
-      vx: (Math.random() - 0.5) * speed,
-      vy: -speed * (0.35 + Math.random() * 0.5),
+      // 倾斜摆动速度：极慢，几秒钟才晃一度左右
+      spin: (Math.random() - 0.52) * 0.05,
       phase: Math.random() * Math.PI * 2,
       freq: 0.06 + Math.random() * 0.16,
-      amp: 0.004 + Math.random() * 0.012,
+      // 归一化幅度。1440 宽的屏上约 2~7px，390 宽的手机上约 1~2px。
+      // 背景只需要一点呼吸感 —— 再大就会让人注意到「它在动」，
+      // 反而抢标题的注意力。
+      amp: 0.0015 + Math.random() * 0.0035,
       marginX: 0,
       marginY: 0,
     };
@@ -478,53 +478,28 @@ export class SymbolField {
   }
 
   private update(dt: number, time: number): void {
-    // 指针平滑：0.06 的系数在 60fps 下约 0.27s 跟上，够软但不迟钝
-    this.pointerSmooth.x += (this.pointer.x - this.pointerSmooth.x) * 0.06;
-    this.pointerSmooth.y += (this.pointer.y - this.pointerSmooth.y) * 0.06;
-
-    const px = this.pointerSmooth.x;
-    const py = this.pointerSmooth.y;
-
     for (const g of this.glyphs) {
-      // 位置只做正弦浮动，不做匀速漂移。
+      // 位置只做正弦浮动，不做匀速漂移，也不响应指针。
       //
-      // 这一条是踩过坑的：一开始每个元素有自己的速度，会一路漂过屏幕。
-      // 拒绝采样只保证**初始**位置不重叠，元素漂几十秒后必然相交 ——
-      // 实测 152 个元素里有 45 对叠在一起，长的公式会压住别的符号。
-      // 改成纯浮动后，位置只在初始点附近小幅摆动（最多约 14px），
-      // 初始不重叠就基本一直不重叠。动感由浮动 + 倾斜 + 视差 + 指针排斥提供，
-      // 视觉上并没有变呆板，反而更像「安静的背景」而不是「漂走的碎片」。
+      // 漂移是踩过坑的：元素一路漂过屏幕，几十秒后必然相交 ——
+      // 实测上百个元素里几十对叠在一起，长公式会压住别的符号。
+      // 改成纯浮动后，位置只在初始点附近小幅摆动，初始不重叠就一直不重叠。
+      //
+      // 浮动幅度刻意压得很小（见 createGlyph 里的 amp 取值）：
+      // 背景只是「有一点呼吸感」，不该让人注意到它在动。
       const bob = Math.sin(time * g.freq * Math.PI * 2 + g.phase);
       const side = Math.cos(time * g.freq * Math.PI * 1.3 + g.phase * 1.7);
 
-      // 浮动幅度按元素自身尺寸打折：公式面积大，同样的 12px 位移在它身上
-      // 更容易蹭到邻居，所以按尺寸压一下。
+      // 公式面积大，同样的位移更容易蹭到邻居，按尺寸再压一档
       const swingScale = g.isFormula ? 0.6 : 1;
-      let x = g.x + side * g.amp * swingScale;
-      let y = g.y + bob * g.amp * swingScale;
 
-      // 指针排斥：距离小于 0.22 时向外推，越深层的推得越明显。
-      // 这是位移不是速度，松开指针后会自然回到原位。
+      // 渲染位置 = 基准位置 + 浮动偏移。
       //
-      // 必须判 hasPointer：指针一次都没动过时 pointer 停在初始值 (0.5, 0.5)，
-      // 不判的话屏幕正中会有一个「幽灵指针」，把中心附近的元素推开
-      // 最多 force*width ≈ 37px —— 铺排时算好不重叠，动起来就叠上了。
-      let pushX = 0;
-      let pushY = 0;
-      if (this.hasPointer) {
-        const dx = x - px;
-        const dy = y - py;
-        const dist = Math.hypot(dx, dy);
-        if (dist < 0.22 && dist > 0.0001) {
-          const force = (1 - dist / 0.22) ** 2 * 0.026 * (0.3 + g.depth);
-          pushX = (dx / dist) * force;
-          pushY = (dy / dist) * force;
-        }
-      }
-
-      // 夹到画布内：浮动的偏移量也要算进去，否则贴边的元素会探出去
-      g.x = clampCenter(x + pushX, g.marginX);
-      g.y = clampCenter(y + pushY, g.marginY);
+      // 这里**不能**写成 g.x = g.x + 偏移 —— 那是累加，浮动量每帧都叠进去，
+      // 元素会一路飘到边界才停，看起来像在匀速漂移而不是「小幅呼吸」。
+      // 基准位置 x/y 始终保持不动，偏移每帧从相位重新算。
+      g.rx = clampCenter(g.x + side * g.amp * swingScale, g.marginX);
+      g.ry = clampCenter(g.y + bob * g.amp * swingScale, g.marginY);
 
       // 绕 home 摆动而不是无界累加：累加迟早会转成倒立
       g.rotation += g.spin * dt * 3;
@@ -536,21 +511,14 @@ export class SymbolField {
     const { ctx, width, height } = this;
     ctx.clearRect(0, 0, width, height);
 
-    // 视差偏移：整层按指针位置反向轻移，深度越大移得越多
-    // 指针没出现过时保持正中，避免某些环境把 (0,0) 当成角落指针
-    const anchorX = this.hasPointer ? this.pointerSmooth.x : 0.5;
-    const anchorY = this.hasPointer ? this.pointerSmooth.y : 0.5;
-    const parallaxX = (anchorX - 0.5) * -26;
-    const parallaxY = (anchorY - 0.5) * -26;
-
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
 
     for (const g of this.glyphs) {
       const fontSize = this.fontSizeOf(g);
-      // 位置已由 update 算好（含浮动与指针排斥），这里只叠加视差
-      const x = g.x * width + parallaxX * g.depth;
-      const y = g.y * height + parallaxY * g.depth;
+      // 位置已由 update 算好（基准 + 浮动），这里只做坐标换算
+      const x = g.rx * width;
+      const y = g.ry * height;
 
       // 中心遮罩：屏幕正中（标题所在）让元素退到几乎看不见，保证标题可读
       const nx = (x / width - 0.5) * 2;
@@ -578,14 +546,6 @@ export class SymbolField {
   }
 
   /* ── 事件 ─────────────────────────────────────────── */
-
-  private handlePointerMove(event: PointerEvent): void {
-    const rect = this.canvas.getBoundingClientRect();
-    if (rect.width === 0 || rect.height === 0) return;
-    this.pointer.x = (event.clientX - rect.left) / rect.width;
-    this.pointer.y = (event.clientY - rect.top) / rect.height;
-    this.hasPointer = true;
-  }
 
   private handleVisibility(): void {
     if (this.reducedMotion) return;

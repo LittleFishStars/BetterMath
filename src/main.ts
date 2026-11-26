@@ -14,8 +14,6 @@ function bootstrap(): void {
   const canvas = document.querySelector<HTMLCanvasElement>('#symbol-field');
   if (!canvas) return;
 
-  // 指针事件由 SymbolField 自己挂在 window 上：
-  // 画布本身 pointer-events: none，收不到 pointermove
   const field = new SymbolField({ canvas });
   field.start();
 
