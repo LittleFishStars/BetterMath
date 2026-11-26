@@ -83,3 +83,33 @@ public/fonts/           Send Flowers woff2
 - `prefers-reduced-motion: reduce`：只画一帧静态画面，不挂 rAF、不监听指针，入场动画瞬时完成。
 - 页面切到后台：停止 rAF，回到前台再续。
 - DPR 上限 2（3K 屏按 3 倍画只掉帧，肉眼看不出差别）。
+
+## 部署
+
+线上地址 **[math.ylxc.top](https://math.ylxc.top/)**，跑在 YlxcServer（与博客同一台机器、同一套
+Cloudflare → nginx 回源），方式是「本地构建 + rsync 镜像」：
+
+```bash
+bash scripts/deploy.sh          # 构建 → 产物闸门 → rsync --delete → 源站健康检查
+```
+
+服务器侧布局：
+
+| 项 | 位置 |
+| --- | --- |
+| docroot | `/var/www/bettermath`（`root:www-data`，脚本里 `--chmod=D755,F644`） |
+| nginx 站点 | `/etc/nginx/sites-available/math.ylxc.top`，仓库内副本见 [deploy/math.ylxc.top](deploy/math.ylxc.top) |
+| 证书 | `/etc/nginx/ssl/math.{fullchain.crt,key}`，acme.sh DNS-01（`dns_cf`, EC-256），自动续期 |
+
+几条约定：
+
+- **独立 docroot，不塞进博客目录**。博客由 CI 用 `rsync --delete` 发布，`/root/Web/MyHomeWeb/`
+  里放任何额外文件都会在下次博客部署时被删掉。
+- `index.html` 一律 `Cache-Control: no-cache`；`/assets/`（Vite 内容哈希文件名）与 `/fonts/`
+  走 `immutable` 长缓存。改字体文件必须换文件名，否则浏览器会一直用旧的。
+- 站点没有 SPA 路由，未知路径 `=404`，不要改成回落到 `index.html`。
+- 改 nginx 配置：先改 `deploy/math.ylxc.top`，拷到服务器 `sites-available` 后 `nginx -t && systemctl reload nginx`；
+  **备份文件不要留在 `sites-available`**（nginx-ui 会当成站点导入），挪到 `/root/nginx-backups/`。
+  新增站点后需 `systemctl restart nginx-ui` 才会出现在面板里。
+- 验证要看源站：`curl --resolve math.ylxc.top:443:47.106.212.155`，`openssl s_client -servername`
+  期望 `CN=math.ylxc.top`（直连 Cloudflare 看到的是边缘证书 `CN=ylxc.top`，不算数）。
