@@ -102,39 +102,98 @@ function bootstrap(): void {
   // 一次只跑一个转场：连点不能叠出两个正在动的页面
   let busy = false;
 
-  /** 章节列表 ↔ 章节内容：两者共用 header，只切主体区域 */
-  const showList = (): void => {
-    detailBox.hidden = true;
-    refs.chaptersBody.hidden = false;
-    headNav.hidden = false;
+  // ── 主体切换（章节列表 ↔ 章节内容）──
+  //
+  // 两屏共用同一个 header，所以这里只动主体区域：
+  // 旧主体淡出上移 → 换内容 → 新主体淡入上移。
+  // 时长与首页⇄章节页的转场对齐（退场 150ms / 进场 300ms），
+  // 这样三层页面之间来回走，节奏是同一个。
+  //
+  // 为什么退场要先等完再显示新主体，而不是交叉淡化：
+  // 两屏都是文档流里的块，同时可见会把页面撑高、滚动条跳一下。
+  // 串行做没有这个副作用，中间也只有一帧的空档，肉眼看不出来。
+  const BODY_LEAVE_MS = 150;
+
+  const wait = (ms: number): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+  /** 旧主体退场：淡出上移，结束后隐藏 */
+  const leaveBody = async (el: HTMLElement): Promise<void> => {
+    if (el.hidden) return;
+    el.classList.remove('is-revealed');
+    el.classList.add('is-leaving');
+    await wait(BODY_LEAVE_MS);
+    el.hidden = true;
+    el.classList.remove('is-leaving');
   };
 
-  const showDetail = (chapterId: string): void => {
+  /** 新主体进场：显示后下一帧再加 class 触发过渡 */
+  const enterBody = (el: HTMLElement): void => {
+    el.hidden = false;
+    // 元素从 hidden 变可见的那一帧加 class 不会触发过渡，先摘再下一帧加
+    el.classList.remove('is-revealed');
+    requestAnimationFrame(() => el.classList.add('is-revealed'));
+  };
+
+  /** 摆好列表（不做动画，供首屏与 header 转场使用） */
+  const showList = (): void => {
+    detailBox.hidden = true;
+    detailBox.classList.remove('is-revealed', 'is-leaving');
+    // 分类锚点淡回。首屏时整棵树刚从 display:none 出来，
+    // 同一帧加的 class 不产生过渡，所以直接这么写就够了。
+    headNav.classList.remove('is-gone');
+    refs.chaptersBody.hidden = false;
+  };
+
+  /** 渲染并摆好内容页（不做动画） */
+  const prepareDetail = (chapterId: string): boolean => {
     const chapter = findChapter(chapterId);
-    if (!chapter) {
-      // 未知 id：退回列表，别让人停在空白页
-      router.navigate({ view: 'chapters' }, { history: false });
-      return;
-    }
+    if (!chapter) return false;
 
     renderChapterDetail(detailBox, chapter, CHAPTER_CONTENTS[chapterId] ?? [], () => {
       router.navigate({ view: 'chapters' });
     });
 
-    // header 的分类锚点在内容页没有意义，收起
-    headNav.hidden = true;
+    // header 的分类锚点在内容页没有意义，淡出（首屏时无过渡）
+    headNav.classList.add('is-gone');
     refs.chaptersBody.hidden = true;
+    refs.chaptersBody.classList.remove('is-revealed', 'is-leaving');
     detailBox.hidden = false;
-
-    // 淡入：先摘 class 再下一帧加回，否则元素从 hidden 变可见的那一帧
-    // 加 class 不会触发过渡（见 transitions.ts 里同样的坑）
-    detailBox.classList.remove('is-revealed');
-    requestAnimationFrame(() => detailBox.classList.add('is-revealed'));
-
-    window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    return true;
   };
 
-  const applyRoute = async (next: Route, previous: Route | null): Promise<void> => {
+  /** 带动画地切到列表 / 内容页 */
+  const switchBody = async (next: Route): Promise<void> => {
+    const toDetail = next.view === 'chapter';
+    const from = toDetail ? refs.chaptersBody : detailBox;
+    const to = toDetail ? detailBox : refs.chaptersBody;
+
+    // 1) 旧主体先退场。
+    //    必须排在「摆好新主体」之前：showList/prepareDetail 会直接写 hidden，
+    //    一旦先隐藏，leaveBody 里的 el.hidden 判断就会短路，动画整个跳过。
+    await leaveBody(from);
+
+    // 2) 摆好新主体
+    if (toDetail && !prepareDetail(next.chapterId)) {
+      // 未知 id：退回列表。这里不能靠 router.navigate 转场 ——
+      // applyRoute 的 busy 锁会把紧接着的那次 emit 丢掉，所以手动摆好视图，
+      // 只让 router 把地址栏改回 /chapters（history: false，不新增记录）。
+      showList();
+      router.navigate({ view: 'chapters' }, { history: false });
+      enterBody(refs.chaptersBody);
+      return;
+    }
+    if (!toDetail) showList();
+
+    // 3) 新主体进场
+    if (toDetail) {
+      window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    }
+    enterBody(to);
+  };
+
+  // 只处理「导航引起」的切换：首次落地由下面的初始状态那段负责
+  const applyRoute = async (next: Route, previous: Route): Promise<void> => {
     if (busy) return;
     busy = true;
 
@@ -142,24 +201,9 @@ function bootstrap(): void {
     field?.lowPower(next.view !== 'home');
 
     try {
-      // 首次进入：不做转场，直接摆好
-      if (previous === null) {
-        if (next.view === 'home') {
-          document.body.dataset.route = 'home';
-          showHomeImmediately(refs);
-        } else {
-          document.body.dataset.route = 'chapters';
-          showChaptersImmediately(refs);
-          if (next.view === 'chapter') showDetail(next.chapterId);
-          else showList();
-        }
-        return;
-      }
-
       // 章节列表 ↔ 章节内容：同一个视图内的两屏，不走 header 转场
       if (previous.view !== 'home' && next.view !== 'home') {
-        if (next.view === 'chapter') showDetail(next.chapterId);
-        else showList();
+        await switchBody(next);
         return;
       }
 
@@ -170,9 +214,15 @@ function bootstrap(): void {
       // 整页重排一次。如果这发生在转场途中，画面会明显抖一下。
       // 等落位之后再切，布局变化就和动画错开了。
       if (next.view !== 'home') {
-        if (next.view === 'chapter') showDetail(next.chapterId);
-        else showList();
-        await enterChapters(refs);
+        // 从主页过来：主体静态就位，进场交给 enterChapters（含 header 滑下）
+        if (next.view === 'chapter') {
+          if (!prepareDetail(next.chapterId)) return;
+          await enterChapters(refs);
+          enterBody(detailBox);
+        } else {
+          showList();
+          await enterChapters(refs);
+        }
         document.body.dataset.route = 'chapters';
       } else {
         await leaveChapters(refs);
@@ -190,8 +240,12 @@ function bootstrap(): void {
   if (initial.view !== 'home') {
     document.body.dataset.route = 'chapters';
     showChaptersImmediately(refs);
-    if (initial.view === 'chapter') showDetail(initial.chapterId);
-    else showList();
+    if (initial.view === 'chapter') {
+      if (prepareDetail(initial.chapterId)) detailBox.classList.add('is-revealed');
+      else showList();
+    } else {
+      showList();
+    }
   } else {
     showList();
   }

@@ -34,13 +34,25 @@
   opacity: 0;
   transform: translateY(14px);
   transition:
-    opacity 420ms ease,
-    transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    opacity 300ms ease,
+    transform 300ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .chapters__body.is-revealed {
   opacity: 1;
   transform: none;
+}
+
+/* 退场：与进场同一套动作，方向相反、时长更短。
+   退场是「已经看过的东西离开」，不该让人等；
+   进场是「新内容到来」，给足时间才看得清它从哪儿来。 */
+.chapters__body.is-leaving,
+.chapter-detail.is-leaving {
+  opacity: 0;
+  transform: translateY(-10px);
+  transition:
+    opacity 150ms ease,
+    transform 150ms cubic-bezier(0.4, 0, 1, 1);
 }
 
 /* ── 液态玻璃 header ─────────────────────────────────────
@@ -188,6 +200,23 @@
    必须显式写：上面的 display: flex 会盖掉 [hidden] 自带的 display: none。 */
 .chapter-head__nav[hidden] {
   display: none;
+}
+
+/* 转场时用 .is-gone 淡出，而不是直接 hidden —— 否则 header 右上角
+   会「啪」地少一块，而主体那边正在慢慢淡出，两边一快一慢很割裂。
+   visibility 延迟到淡出结束再切，淡出过程中仍可见；
+   切到 hidden 后对辅助技术也一并隐藏。 */
+.chapter-head__nav {
+  transition: opacity 220ms var(--bm-ease-out);
+}
+
+.chapter-head__nav.is-gone {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 220ms var(--bm-ease-out),
+    visibility 0s linear 220ms;
 }
 
 .chapter-head__link {
@@ -608,12 +637,14 @@
   padding: clamp(1.6rem, 4vh, 3rem) clamp(1.1rem, 4vw, 3rem) 5rem;
 
   /* 由 JS 加 .is-revealed 淡入。元素从 hidden 变可见的那一帧加 class
-     不会触发过渡，所以 main.ts 里是先摘再下一帧加。 */
+     不会触发过渡，所以 main.ts 里是先摘再下一帧加。
+     时长与 .chapters__body 对齐（300ms）：两者会互相切换，
+     快慢不一致的话来回一次就觉得节奏突然变了。 */
   opacity: 0;
-  transform: translateY(10px);
+  transform: translateY(14px);
   transition:
-    opacity 320ms ease,
-    transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+    opacity 300ms ease,
+    transform 300ms cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 
 .chapter-detail[hidden] {
