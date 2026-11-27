@@ -57,7 +57,6 @@ function bootstrap(): void {
   const applyRoute = async (to: 'home' | 'chapters', previous: 'home' | 'chapters' | null): Promise<void> => {
     if (busy) return;
     busy = true;
-    document.body.dataset.route = to;
 
     // 章节页是长内容，背景降到低密度，省下的 GPU 留给卡片与滚动
     field?.lowPower(to === 'chapters');
@@ -65,13 +64,26 @@ function bootstrap(): void {
     try {
       // 首次进入：不做飞行，直接摆好
       if (previous === null) {
+        document.body.dataset.route = to;
         if (to === 'chapters') showChaptersImmediately(refs);
         else showHomeImmediately(refs);
         return;
       }
 
-      if (to === 'chapters') await enterChapters(refs);
-      else await leaveChapters(refs);
+      // 动画期间**不切** data-route。
+      //
+      // body[data-route='home'] 上挂着 height:100dvh + overflow:hidden，
+      // 一进章节页就摘掉，会立刻出现滚动条 —— 视口宽度瞬间少 15px，
+      // 整页重排一次。如果这发生在标题飞行途中，画面会明显抖一下，
+      // 严重时还会让正在动的克隆跳位。
+      // 等落位之后再切，布局变化就和动画错开了。
+      if (to === 'chapters') {
+        await enterChapters(refs);
+        document.body.dataset.route = 'chapters';
+      } else {
+        await leaveChapters(refs);
+        document.body.dataset.route = 'home';
+      }
     } finally {
       busy = false;
     }

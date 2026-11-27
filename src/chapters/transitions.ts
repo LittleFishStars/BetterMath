@@ -108,19 +108,32 @@ async function fly(
   }
 
   clone.style.transformOrigin = 'top left';
+
+  const finalTransform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+
   const animation = clone.animate(
     [
       { transform: 'translate(0px, 0px) scale(1)', opacity: 1 },
-      {
-        transform: `translate(${dx}px, ${dy}px) scale(${scale})`,
-        // 缩到很小时线宽会变细，末端稍微提一点不透明度保持「实」
-        opacity: 1,
-      },
+      { transform: finalTransform, opacity: 1 },
     ],
     { duration, easing: FLY_EASE, fill: 'forwards' },
   );
 
-  await animation.finished.catch(() => undefined);
+  // 等定时器，而不是等 animation.finished。
+  //
+  // 这是个真踩过的坑：animation.finished 在动画被取消时会提前 resolve/reject，
+  // 一旦它提前返回，下面的 clone.remove() 就把还在半路的标题抹掉了 ——
+  // 屏幕上表现为「飞到一半突然消失」，空等一会儿才看见 header 里的新标题。
+  // 用与时长对齐的定时器兜底，克隆一定活满整段飞行。
+  await new Promise<void>((resolve) => setTimeout(resolve, duration));
+
+  // 无论动画是否正常跑完，落位前都显式对齐到终点：
+  // 若动画被打断过，克隆会停在半路，这里补上最后一跳再移除，避免位置跳变。
+  animation.cancel();
+  clone.style.transform = finalTransform;
+
+  // 等一帧让上面的 transform 生效，落位瞬间不会闪
+  await nextFrame();
 
   clone.remove();
   source.style.visibility = '';
