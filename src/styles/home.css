@@ -1,8 +1,9 @@
 /**
- * 首页布局
+ * 首页布局 + 两个视图的外壳
  *
- * 单屏结构：标题居中在视口正中，页脚贴着底部。整页不滚动，
- * 所以尺寸全部用 dvh 而不是 vh —— 移动端地址栏收起时 vh 会跳。
+ * 主页是单屏：标题居中、页脚贴底、不滚动，尺寸一律用 dvh 而不是 vh
+ * （移动端地址栏收起时 vh 会跳）。
+ * 章节页要滚动，所以两页做成两个并列的视图元素，靠 hidden 切换。
  */
 
 html,
@@ -10,30 +11,61 @@ body {
   height: 100%;
 }
 
-/* 单屏页面不该出现滚动条。
-   dvh 与视口实际高度之间会有 1px 的亚像素差（900 vs 901），
-   不裁掉的话 html 上就多出一条滚动缝，页面右下角能看到滚动条。
-   body 上已经有 overflow: hidden，这里把 html 也裁上。 */
+/* 章节页要能滚动，所以不能像主页那样在 html 上锁 overflow。
+   主页视图本身是 fixed 的整屏 grid，它自己 overflow: hidden，
+   不影响章节页。 */
 html {
-  overflow: hidden;
+  overflow-x: hidden;
 }
 
 body {
   margin: 0;
-  /* 用 height 而不是 min-height：单屏不滚动，定高之后 grid 的 1fr 行
-     才按确定高度精确分配。用 min-height 时行高由内容撑开，
-     页脚会被推出去几个像素（实测 9px），html 上就多出一条滚动缝。 */
-  height: 100dvh;
-  display: grid;
-  /* 三行：上留白 / 标题 / 页脚。上留白与页脚等高，标题才是光学居中 */
-  grid-template-rows: 1fr auto 1fr;
-  justify-items: center;
-  overflow: hidden;
+  min-height: 100dvh;
   font-family: var(--bm-font-sans);
   color: var(--bm-text);
   background-color: var(--bm-canvas);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* 主页激活时把整页滚动锁住（章节页时由 JS 摘掉这个属性） */
+body[data-route='home'] {
+  height: 100dvh;
+  overflow: hidden;
+}
+
+/* ── 视图容器 ─────────────────────────────────────────────
+   两个视图叠在同一个 body 上，靠 hidden 切换。
+   主页是整屏 fixed 的三行 grid：它不参与文档流，
+   章节页要滚动时不会被主页的布局挤开。 */
+.home {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  display: grid;
+  /* 三行：上留白 / 标题与按钮 / 页脚。上留白与页脚等高，标题才是光学居中 */
+  grid-template-rows: 1fr auto 1fr;
+  justify-items: center;
+  overflow: hidden;
+}
+
+.home[hidden] {
+  display: none;
+}
+
+/* 标题与按钮在同一格里纵向排列 */
+.hero {
+  grid-row: 2;
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.85rem, 2.4vh, 1.6rem);
+  padding-inline: 1.25rem;
+  text-align: center;
+  /* 整体上移：标题居中时会显得偏下（页脚占了底部，视觉重心被拉低）。 */
+  transform: translateY(-6vh);
 }
 
 /* ── 背景画布 ─────────────────────────────────────────────
@@ -61,21 +93,6 @@ body {
 
 /* ── 标题区 ───────────────────────────────────────────── */
 
-.hero {
-  grid-row: 2;
-  position: relative;
-  z-index: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: clamp(0.85rem, 2.4vh, 1.6rem);
-  padding-inline: 1.25rem;
-  text-align: center;
-  /* 整体上移：标题居中时会显得偏下（页脚占了底部，视觉重心被拉低）。
-     上移 6vh 让标题落在视口偏上的位置，下方留给按钮和留白。
-     窄屏/矮屏在上下面的媒体查询里各有一档更小的取值。 */
-  transform: translateY(-6vh);
-}
 
 .hero__title {
   margin: 0;

@@ -12,16 +12,18 @@
     <link rel="preload" as="font" type="font/woff2" href="/fonts/send-flowers-latin.woff2" crossorigin />
     <script type="module" src="/src/main.ts"></script>
   </head>
-  <body>
-    <!-- 背景符号场：纯装饰，对辅助技术隐藏 -->
+  <body data-route="home">
+    <!-- 背景符号场：两个视图共用，纯装饰，对辅助技术隐藏 -->
     <canvas id="symbol-field" aria-hidden="true"></canvas>
 
-    <main class="hero">
-      <h1 class="hero__title">BetterMath</h1>
+    <!-- ══ 主页 ═══════════════════════════════════════════════ -->
+    <main class="home" id="view-home">
+      <h1 class="hero__title" id="home-title">BetterMath</h1>
+
       <!-- 悬停时从下边缘中点扩散一个圆，把「数学可视化」擦成「开始探索」。
            两层文字各自被互补的圆形遮罩裁掉一半，任何时刻只有一层可见，
-           所以不会出现两层叠在一起、笔画打架的情况。 -->
-      <button class="hero__cta" type="button" aria-label="开始探索">
+           所以不会出现两层叠着、笔画打架的情况。 -->
+      <button class="hero__cta" type="button" id="enter-button" aria-label="开始探索">
         <!-- 光晕层：与「数学可视化」同文同位，文字本身透明、只留一圈柔光，
              呼吸式明暗变化，暗示这行字可以点。
              它是独立的一层，不参与下面那对圆形遮罩 —— 遮罩会连光晕一起切，
@@ -30,12 +32,47 @@
         <span class="hero__cta__idle" aria-hidden="true">数学可视化</span>
         <span class="hero__cta__hover" aria-hidden="true">开始探索</span>
       </button>
+
+      <footer class="site-foot">
+        <span class="site-foot__rule" aria-hidden="true"></span>
+        <span>把抽象的形状画出来</span>
+        <span class="site-foot__rule" aria-hidden="true"></span>
+      </footer>
     </main>
 
-    <footer class="site-foot">
-      <span class="site-foot__rule" aria-hidden="true"></span>
-      <span>把抽象的形状画出来</span>
-      <span class="site-foot__rule" aria-hidden="true"></span>
-    </footer>
+    <!-- ══ 章节页 ═════════════════════════════════════════════ -->
+    <main class="chapters" id="view-chapters" hidden>
+      <!-- 液态玻璃 header：内容由 JS 注入（分类锚点）。
+           标题本身不写在 HTML 里 —— 它由主页标题「飞」进来，
+           见 transitions.ts 的 flyTitle。 -->
+      <header class="chapter-head" id="chapter-head">
+        <div class="chapter-head__glass" aria-hidden="true"></div>
+        <div class="chapter-head__inner">
+          <a class="chapter-head__brand" id="head-title-slot" href="/" aria-label="返回主页">
+            <!-- 飞行中的标题会被克隆到 body 下，落位后隐藏克隆、显示这里 -->
+            <span class="chapter-head__title" id="head-title">BetterMath</span>
+          </a>
+          <nav class="chapter-head__nav" id="chapter-nav" aria-label="章节分类"></nav>
+        </div>
+      </header>
+
+      <!-- 章节网格：由 chapters/render.ts 填充 -->
+      <div class="chapters__body" id="chapters-body"></div>
+    </main>
+
+    <!-- 共用 <defs>：代表图形的渐变定义，集中一份 -->
+    <svg class="svg-defs" aria-hidden="true" focusable="false" width="0" height="0">
+      <defs>
+        <linearGradient id="bm-fig-line" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#3b8fe0" />
+          <stop offset="0.55" stop-color="#2a4ca0" />
+          <stop offset="1" stop-color="#12386e" />
+        </linearGradient>
+        <linearGradient id="bm-fig-soft" x1="0" y1="1" x2="0" y2="0">
+          <stop offset="0" stop-color="#1c6fc4" stop-opacity="0" />
+          <stop offset="1" stop-color="#1c6fc4" stop-opacity="0.22" />
+        </linearGradient>
+      </defs>
+    </svg>
   </body>
 </html>

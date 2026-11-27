@@ -1,0 +1,570 @@
+/**
+ * 章节页样式
+ *
+ * 两个主角：液态玻璃 header、毛玻璃章节卡片。
+ * 两者的「玻璃感」靠同三样东西堆出来，缺一样就像普通半透明方块：
+ *   1. backdrop-filter: blur + saturate —— 把背后的内容糊掉并提饱和
+ *   2. 内侧高光（inset box-shadow）—— 模拟玻璃边缘的折射亮边
+ *   3. 一层极淡的斜向渐变 —— 玻璃本身不是均匀的，光从上方来
+ */
+
+/* ── 章节页总体 ───────────────────────────────────────── */
+
+.chapters {
+  position: relative;
+  z-index: 1;
+  /* 顶距要躲开 header。--bm-head-h 由 transitions.ts 量出来后写入，
+     这里给一个兜底值：JS 还没跑时也顶得开 */
+  padding-top: var(--bm-head-h, 76px);
+  min-height: 100dvh;
+  font-family: var(--bm-font-sans);
+  color: var(--bm-text);
+}
+
+.chapters__body {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: clamp(1.6rem, 4vh, 3rem) clamp(1.1rem, 4vw, 3rem) 5rem;
+}
+
+/* ── 液态玻璃 header ─────────────────────────────────────
+   header 本身只做定位与滑出动画，玻璃质感全在 __glass 这一层上。
+   分开的原因：动画要动 transform，而 backdrop-filter 在带 transform 的
+   元素上会创建新的包含块，混在一起容易触发重绘异常。 */
+.chapter-head {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 40;
+  transform: translateY(-100%);
+  /* 滑出的过渡由 WAAPI 驱动（见 transitions.ts），这里不写 transition */
+  will-change: transform;
+}
+
+.chapter-head__glass {
+  position: absolute;
+  inset: 0;
+  /* 关键的一行：模糊 + 提饱和。saturate 不能省 ——
+     只开 blur 的话，背后浅色的符号会糊成一片灰，玻璃看起来是「脏」的 */
+  backdrop-filter: blur(12px) saturate(180%) brightness(1.06);
+  -webkit-backdrop-filter: blur(12px) saturate(180%) brightness(1.06);
+
+  /* 玻璃本体：上方更亮、下方更透 */
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.62) 0%,
+    rgba(255, 255, 255, 0.34) 62%,
+    rgba(255, 255, 255, 0.42) 100%
+  );
+
+  /* 三道高光叠出「厚度」：
+     1) 顶部内侧一条亮线（光从上面来）
+     2) 底部内侧一条更淡的反射
+     3) 一条外阴影把 header 从背景上托起来 */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.5),
+    0 1px 2px rgba(18, 56, 110, 0.06),
+    0 10px 30px -12px rgba(18, 56, 110, 0.18);
+
+  /* 下边界的一道渐变细线：纯色边框会显得生硬 */
+  border-bottom: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+/* 液态感：一层缓慢横扫的镜面反光。
+   用 ::after 而不是叠 background，是为了让它独立于玻璃本体做动画，
+   改 background-position 只重绘这一层。 */
+.chapter-head__glass::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 255, 255, 0.55) 42%,
+    rgba(255, 255, 255, 0) 62%
+  );
+  background-size: 260% 100%;
+  animation: bm-glass-sweep 9s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes bm-glass-sweep {
+  0%,
+  100% {
+    background-position: 130% 0;
+  }
+  50% {
+    background-position: -40% 0;
+  }
+}
+
+.chapter-head__inner {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 clamp(1.1rem, 4vw, 3rem);
+  /* 高度写死，飞行落点才好稳定。76 是「标题 28px + 上下各 24px」 */
+  height: var(--bm-head-h, 76px);
+}
+
+.chapter-head__brand {
+  display: inline-flex;
+  align-items: baseline;
+  text-decoration: none;
+  color: inherit;
+  border-radius: 0.4em;
+}
+
+.chapter-head__brand:focus-visible {
+  outline: 2px solid rgba(28, 111, 196, 0.55);
+  outline-offset: 0.35em;
+}
+
+/* header 里的标题：与主页标题同一款花体、同一套渐变，
+   飞行落位后视觉上就是「同一个东西变小了」 */
+.chapter-head__title {
+  font-family: var(--bm-font-display);
+  font-weight: 400;
+  font-size: 1.75rem;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  padding: 0.12em 0.04em 0.06em;
+
+  background: var(--bm-gradient-title);
+  background-size: 180% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0.03em 0.06em rgba(28, 111, 196, 0.18));
+}
+
+.chapter-head__nav {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.9rem, 2vw, 1.6rem);
+}
+
+.chapter-head__link {
+  position: relative;
+  font-size: 0.86rem;
+  letter-spacing: 0.12em;
+  color: var(--bm-text-muted);
+  text-decoration: none;
+  padding: 0.35em 0.1em;
+  border-radius: 0.3em;
+  transition: color 220ms var(--bm-ease-out);
+}
+
+/* 悬停时文字变深 + 下划一条短横线，比整块变色克制 */
+.chapter-head__link::after {
+  content: '';
+  position: absolute;
+  left: 0.1em;
+  right: 0.1em;
+  bottom: 0.1em;
+  height: 1.5px;
+  border-radius: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 260ms var(--bm-ease-out);
+}
+
+.chapter-head__link:hover {
+  color: var(--bm-text-strong);
+}
+
+.chapter-head__link:hover::after {
+  transform: scaleX(1);
+}
+
+.chapter-head__link:focus-visible {
+  outline: 2px solid rgba(28, 111, 196, 0.5);
+  outline-offset: 0.2em;
+}
+
+/* 滚动后玻璃更实一点，压得住下面的卡片 */
+.chapter-head.is-scrolled .chapter-head__glass {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.78) 0%,
+    rgba(255, 255, 255, 0.52) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.55),
+    0 1px 2px rgba(18, 56, 110, 0.07),
+    0 14px 34px -14px rgba(18, 56, 110, 0.24);
+}
+
+/* ── 分类分区 ───────────────────────────────────────── */
+
+.chapter-group {
+  /* 分区间距大一些，三类之间的分组感才出来 */
+  margin-bottom: clamp(2.4rem, 6vh, 4rem);
+  scroll-margin-top: calc(var(--bm-head-h, 76px) + 1.4rem);
+}
+
+.chapter-group__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.8rem;
+  margin-bottom: 1.15rem;
+  flex-wrap: wrap;
+}
+
+.chapter-group__title {
+  margin: 0;
+  font-size: clamp(1.15rem, 2.2vw, 1.4rem);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--bm-text-strong);
+}
+
+.chapter-group__latin {
+  font-size: 0.78rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: rgba(90, 107, 130, 0.62);
+}
+
+.chapter-group__count {
+  font-size: 0.76rem;
+  letter-spacing: 0.1em;
+  color: var(--bm-text-muted);
+}
+
+/* 一条向右淡出的细线，把标题和右侧留白连起来 */
+.chapter-group__rule {
+  flex: 1;
+  min-width: 2rem;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(28, 111, 196, 0.22),
+    rgba(28, 111, 196, 0)
+  );
+}
+
+/* ── 卡片网格 ─────────────────────────────────────────── */
+
+.chapter-grid {
+  display: grid;
+  /* 最小 260px：再窄的话「题目 + 描述 + 图形」会挤成两行。
+     用 auto-fit 而不是 auto-fill：某一行卡片少（比如代数只有 3 张）时，
+     空轨道会被折叠、卡片拉宽填满整行，不会在右边留一大块缺口。 */
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: clamp(0.85rem, 1.6vw, 1.25rem);
+}
+
+/* ── 章节卡片 ─────────────────────────────────────────── */
+
+.card {
+  /* 这些变量由 render.ts 的 pointermove 写入，初始值保证没有鼠标时也是正的 */
+  --tilt-x: 0deg;
+  --tilt-y: 0deg;
+  --glare-x: 50%;
+  --glare-y: 0%;
+
+  position: relative;
+  display: block;
+  min-height: 146px;
+  border-radius: 18px;
+  overflow: hidden;
+  isolation: isolate;
+
+  /* 让 3D 有透视感；perspective 写在身上的话倾斜会更「深」 */
+  transform:
+    perspective(760px)
+    translateY(0)
+    scale(1)
+    rotateX(var(--tilt-x))
+    rotateY(var(--tilt-y));
+
+  /* 只对 transform 做过渡：鼠标移动时 transform 由 JS 每帧写入，
+     过渡时间给短一点，跟随才跟手；浮起/落回时也靠它缓一下 */
+  transition:
+    transform 240ms cubic-bezier(0.22, 0.61, 0.36, 1),
+    box-shadow 260ms var(--bm-ease-out);
+
+  /* 毛玻璃本体。
+     注意：这里**故意不用 backdrop-filter**。
+     实测 13 张卡片各挂一个 backdrop-filter 时帧率从 40 掉到 11 ——
+     每个都独立采样背景做模糊，GPU 直接被压垮（降模糊半径也没用，
+     开销在采样次数而不是半径）。而且每张卡背后的内容都不一样，
+     没法共享一次模糊。
+     改用「高不透明度白 + 内层渐变」模拟同样的观感：卡片本身就够白，
+     背后的符号透出来一点点就够了，玻璃感主要靠下面的高光与反光层撑。 */
+  background: linear-gradient(
+    155deg,
+    rgba(255, 255, 255, 0.78) 0%,
+    rgba(255, 255, 255, 0.62) 46%,
+    rgba(255, 255, 255, 0.74) 100%
+  );
+  /* 一层极淡的冷色内发光，模拟玻璃内部的散射光 */
+  background-color: rgba(250, 253, 255, 0.7);
+
+  /* 内侧高光 + 一条极淡的外阴影。
+     不用实线 border（那会变成「画框」），亮边靠 inset 阴影模拟玻璃切面 */
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 1px 2px rgba(18, 56, 110, 0.06),
+    0 10px 24px -14px rgba(18, 56, 110, 0.42),
+    0 2px 8px -4px rgba(18, 56, 110, 0.1);
+
+  cursor: pointer;
+  outline: none;
+}
+
+/* 悬停：稍微放大浮出，阴影加深加远 */
+.card:hover,
+.card:focus-visible {
+  transform:
+    perspective(760px)
+    translateY(-6px)
+    scale(1.035)
+    rotateX(var(--tilt-x))
+    rotateY(var(--tilt-y));
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7),
+    0 2px 4px rgba(18, 56, 110, 0.06),
+    0 24px 50px -18px rgba(18, 56, 110, 0.42);
+}
+
+/* 键盘聚焦要有可见的轮廓，鼠标悬停时不要（否则每次都闪一圈） */
+.card:focus-visible {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7),
+    0 0 0 2px rgba(28, 111, 196, 0.55),
+    0 24px 50px -18px rgba(18, 56, 110, 0.42);
+}
+
+/* 反光：跟着鼠标位置走的柔光斑。
+   只有 hover 时才显形，否则每张卡中间都糊一团白，很脏 */
+.card__glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    230px circle at var(--glare-x) var(--glare-y),
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(214, 236, 255, 0.5) 24%,
+    rgba(150, 200, 250, 0.16) 50%,
+    rgba(150, 200, 250, 0) 70%
+  );
+  opacity: 0;
+  transition: opacity 320ms var(--bm-ease-out);
+  pointer-events: none;
+  /* 反光在文字之下：光打在玻璃表面，不该盖住字 */
+  z-index: 1;
+}
+
+.card:hover .card__glare,
+.card:focus-visible .card__glare {
+  opacity: 1;
+}
+
+/* 边缘反光：一圈渐变描边，像玻璃切面反出的冷光。
+   用 mask 挖出 1px 的环，比 border-image 兼容性好、也更好控制圆角 */
+.card__edge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    140deg,
+    rgba(120, 180, 245, 0.95) 0%,
+    rgba(200, 230, 255, 0.75) 18%,
+    rgba(255, 255, 255, 0.2) 44%,
+    rgba(160, 210, 250, 0.7) 72%,
+    rgba(110, 170, 240, 0.95) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0.38;
+  transition: opacity 320ms var(--bm-ease-out);
+  pointer-events: none;
+  z-index: 3;
+}
+
+.card:hover .card__edge,
+.card:focus-visible .card__edge {
+  opacity: 1;
+}
+
+/* 卡片内容：题目在左上，描述紧随，图形在右下 */
+.card__content {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: end;
+  gap: 0.75rem;
+  height: 100%;
+  min-height: 146px;
+  padding: 1rem 1rem 0.9rem 1.1rem;
+}
+
+.card__text {
+  align-self: start;
+  min-width: 0;
+}
+
+.card__title {
+  margin: 0;
+  font-size: clamp(1rem, 1.5vw, 1.08rem);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  line-height: 1.35;
+  color: var(--bm-text-strong);
+}
+
+.card__desc {
+  margin: 0.42rem 0 0;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  letter-spacing: 0.015em;
+  color: var(--bm-text-muted);
+  /* 描述限制两行，防止个别长句子把卡片撑高、网格参差 */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 右下角的代表图形 */
+.card__figure {
+  width: 92px;
+  height: 92px;
+  flex-shrink: 0;
+  opacity: 0.85;
+  transition:
+    opacity 320ms var(--bm-ease-out),
+    transform 420ms var(--bm-ease-out);
+  /* 图形本身不接收指针，避免挡住卡片的 pointermove */
+  pointer-events: none;
+}
+
+.card__figure svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.card:hover .card__figure,
+.card:focus-visible .card__figure {
+  opacity: 1;
+  /* 图形跟着卡片「浮」一点，方向与卡片倾斜相反，制造轻微的视差 */
+  transform: translateY(-3px) scale(1.04);
+}
+
+/* ── 飞行中的标题克隆 ───────────────────────────────────
+   由 transitions.ts 创建并插入 body。
+   position: fixed 是必须的：它要脱离 home 视图（那个视图正在淡出），
+   否则会跟着父级一起消失。 */
+.title-flight {
+  position: fixed;
+  z-index: 120;
+  margin: 0;
+  pointer-events: none;
+  /* 让它自己成层，缩放时不牵动别的东西 */
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+/* ── 主页退场状态 ─────────────────────────────────────── */
+
+/* 只淡出按钮与页脚，标题留给飞行（克隆已经接替它） */
+.home.is-leaving .hero__cta,
+.home.is-leaving .site-foot {
+  opacity: 0;
+  transform: translateY(-6px);
+  transition:
+    opacity 240ms ease-out,
+    transform 240ms ease-out;
+}
+
+/* ── 窄屏微调 ─────────────────────────────────────────── */
+
+@media (max-width: 40rem) {
+  .chapter-head__inner {
+    height: var(--bm-head-h, 64px);
+  }
+
+  .chapter-head__title {
+    font-size: 1.4rem;
+  }
+
+  /* 窄屏上一行放不下三个分类 + 标题，让导航换到第二行并压紧 */
+  .chapter-head__nav {
+    gap: 0.85rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .chapter-head__nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .chapter-head__link {
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    white-space: nowrap;
+  }
+
+  .card__figure {
+    width: 68px;
+    height: 68px;
+  }
+
+  /* 窄屏是单列，卡片很宽，高度压低一些才不显得空 */
+  .card {
+    min-height: 118px;
+    border-radius: 16px;
+  }
+
+  .card__content {
+    min-height: 118px;
+    padding: 0.9rem 0.9rem 0.8rem 1rem;
+  }
+}
+
+/* ── 减少动态效果 ─────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .chapter-head__glass::after {
+    animation: none;
+    opacity: 0;
+  }
+
+  .card {
+    transition: box-shadow 200ms ease-out;
+  }
+
+  /* 不做 3D 倾斜，只保留浮起与阴影变化 */
+  .card:hover,
+  .card:focus-visible {
+    transform: translateY(-3px);
+  }
+
+  .card:hover .card__figure,
+  .card:focus-visible .card__figure {
+    transform: none;
+  }
+}

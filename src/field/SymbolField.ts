@@ -126,6 +126,7 @@ export class SymbolField {
   private lastTime = 0;
   private running = false;
 
+  private lowPowerMode = false;
   private readonly reducedMotion: boolean;
   private readonly resizeObserver: ResizeObserver;
 
@@ -158,6 +159,16 @@ export class SymbolField {
     this.running = true;
     this.lastTime = performance.now();
     this.rafId = requestAnimationFrame(this.tick);
+  }
+
+  /**
+   * 降档：章节页内容长、还要滚动，背景不必像主页那样密。
+   * 画布是全屏的，每帧重绘上百个字形和滚动叠加会很吃 CPU。
+   */
+  lowPower(on: boolean): void {
+    if (this.lowPowerMode === on) return;
+    this.lowPowerMode = on;
+    this.measure();
   }
 
   /** 停止并清理所有副作用 */
@@ -209,7 +220,9 @@ export class SymbolField {
 
     // 目标个数：面积靠小元素填，所以个数和覆盖率一起用
     const area = this.width * this.height;
-    const targetCount = Math.round(Math.min(Math.max(area / 7500, 72), MAX_ITEMS));
+    // 降档时元素数量减半：章节页的视觉重心在卡片上，背景只是衬托
+    const densityDivisor = this.lowPowerMode ? 16000 : 7500;
+    const targetCount = Math.round(Math.min(Math.max(area / densityDivisor, 40), MAX_ITEMS));
 
     for (let i = 0; i < targetCount; i += 1) {
       const old = previous[i];
