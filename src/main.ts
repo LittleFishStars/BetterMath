@@ -225,7 +225,10 @@ function bootstrap(): void {
         }
         document.body.dataset.route = 'chapters';
       } else {
-        await leaveChapters(refs);
+        // 从内容页回主页时，显示着的是 detailBox 而不是章节列表。
+        // 传错的话内容页会一直留到视图被 hidden，主页淡入途中直接透出来。
+        const activeBody = previous.view === 'chapter' ? detailBox : refs.chaptersBody;
+        await leaveChapters(refs, activeBody);
         document.body.dataset.route = 'home';
       }
     } finally {

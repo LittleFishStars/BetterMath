@@ -28,8 +28,8 @@ export interface TransitionRefs {
 
 /** 主页淡出/淡入的时长，与 chapters.css 里的 transition 对齐 */
 const FADE_MS = 340;
-/** 章节内容退场时长（比进场快一点，退场不该让人等） */
-const LEAVE_MS = 220;
+/** 主体退场时长。与 chapters.css 里 .is-leaving 的 150ms 对齐 */
+const LEAVE_MS = 150;
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -72,12 +72,25 @@ export async function enterChapters(refs: TransitionRefs): Promise<void> {
 }
 
 /** 切回主页：把上面的顺序倒过来 */
-export async function leaveChapters(refs: TransitionRefs): Promise<void> {
-  const { homeView, chaptersView, head, chaptersBody } = refs;
+/**
+ * 离开章节页。
+ *
+ * activeBody 是**当前真正显示着的**主体 —— 章节列表或某个章节的内容页。
+ * 这两个是并列的容器，只对 chaptersBody 操作的话，从内容页回主页时
+ * 内容页会一直显示到整个视图被 hidden：主页淡入的 340ms 里是半透明的，
+ * 底下那屏会直接透出来（标题都出来了、内容还在）。
+ */
+export async function leaveChapters(
+  refs: TransitionRefs,
+  activeBody: HTMLElement = refs.chaptersBody,
+): Promise<void> {
+  const { homeView, chaptersView, head } = refs;
 
-  // 1) 章节内容先退场
-  chaptersBody.classList.remove('is-revealed');
+  // 1) 当前主体退场（与内容页互切时同一套动作，150ms）
+  activeBody.classList.remove('is-revealed');
+  activeBody.classList.add('is-leaving');
   await wait(LEAVE_MS);
+  activeBody.classList.remove('is-leaving');
 
   // 2) header 收起，主页淡入
   head.classList.remove('is-shown');
