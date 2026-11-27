@@ -57,9 +57,23 @@ public/fonts/           Send Flowers woff2
 
 ## 章节页
 
-进入时标题从主页中央**飞入** header：克隆一份标题钉在原地，用 WAAPI 做
-`translate + scale`（只走合成层，不重排），同时 header 从顶部滑下接住它。
-`/chapters` 直接访问（刷新或分享链接）时不做飞行，直接落位。
+转场只做淡入淡出，**不做跨元素的位移动画**：主页整体淡出（340ms）、
+液态玻璃 header 从顶部滑下（560ms）、章节内容淡入并轻微上浮（420ms）。
+状态全靠 class 切换（`.is-shown` / `.is-revealed` / `.is-leaving`），
+由 CSS transition 驱动，不用 WAAPI。
+
+> 早先做过「标题克隆出来缩小飞进 header」的动画，调了五六轮：
+> 时长太短、缓动太陡、落点飞出视口、克隆被提前移除。每处都是新的
+> 出错机会，而收益只是一秒多的效果。这层不确定性得不偿失，已移除。
+>
+> 如果以后要恢复类似的跨元素动画，记住两个坑：
+> 1. 别依赖 `animation.finished` —— 动画被取消时它会提前 resolve，
+>    紧随其后的 `clone.remove()` 会把还在半路的元素抹掉。
+> 2. 量目标位置时目标必须处于**最终位置**。header 收起在 `translateY(-100%)`
+>    时去量标题落点，拿到的是屏幕外的负坐标。
+>
+> 还有个 CSS 陷阱：元素从 `display:none` 变可见的同一帧里加过渡 class，
+> 浏览器不会执行过渡（没有起始状态可插值）。必须先等一帧再加 class。
 
 **header 是液态玻璃**：`backdrop-filter: blur(12px) saturate(180%)` 加内侧
 高光与一条缓慢横扫的镜面反光。滚动后玻璃变实（`is-scrolled`），压得住下面的卡片。

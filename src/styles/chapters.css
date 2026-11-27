@@ -25,6 +25,20 @@
   max-width: 1240px;
   margin: 0 auto;
   padding: clamp(1.6rem, 4vh, 3rem) clamp(1.1rem, 4vw, 3rem) 5rem;
+
+  /* 默认不显形，由 transitions.ts 加 .is-revealed 淡入。
+     初始就设 opacity: 0 —— 直接访问 /chapters 时由 showChaptersImmediately
+     立刻加上 class，不会闪一下空白。 */
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 420ms ease,
+    transform 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.chapters__body.is-revealed {
+  opacity: 1;
+  transform: none;
 }
 
 /* ── 液态玻璃 header ─────────────────────────────────────
@@ -35,9 +49,24 @@
   position: fixed;
   inset: 0 0 auto 0;
   z-index: 40;
+
+  /* 收起状态：整体抬到视口上方并透明 */
   transform: translateY(-100%);
-  /* 滑出的过渡由 WAAPI 驱动（见 transitions.ts），这里不写 transition */
-  will-change: transform;
+  opacity: 0;
+  pointer-events: none;
+
+  /* 滑入/收起由 .is-shown 切换驱动，纯 CSS transition。
+     transitions.ts 只负责加/删 class，不碰 transform 数值 ——
+     这样不用算坐标，也不会有 WAAPI 的 finished Promise 时序问题。 */
+  transition:
+    transform 560ms cubic-bezier(0.32, 0, 0.24, 1),
+    opacity 380ms ease;
+}
+
+.chapter-head.is-shown {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .chapter-head__glass {
@@ -489,30 +518,33 @@
   transform: translateY(-3px) scale(1.04);
 }
 
-/* ── 飞行中的标题克隆 ───────────────────────────────────
-   由 transitions.ts 创建并插入 body。
-   position: fixed 是必须的：它要脱离 home 视图（那个视图正在淡出），
-   否则会跟着父级一起消失。 */
-.title-flight {
-  position: fixed;
-  z-index: 120;
-  margin: 0;
-  pointer-events: none;
-  /* 让它自己成层，缩放时不牵动别的东西 */
-  will-change: transform;
-  backface-visibility: hidden;
+/* ── 主页进/退场 ───────────────────────────────────────
+   整块淡出淡入，不做局部位移。主页是 fixed 全屏，
+   opacity 归零后会露出下面的章节页，形成交叉淡化。 */
+.home {
+  transition: opacity 340ms ease;
 }
 
-/* ── 主页退场状态 ─────────────────────────────────────── */
-
-/* 只淡出按钮与页脚，标题留给飞行（克隆已经接替它） */
-.home.is-leaving .hero__cta,
-.home.is-leaving .site-foot {
+.home.is-leaving {
   opacity: 0;
-  transform: translateY(-6px);
-  transition:
-    opacity 240ms ease-out,
-    transform 240ms ease-out;
+  /* 淡出途中不要接住点击，避免点到看不见的按钮 */
+  pointer-events: none;
+}
+
+/* 淡入用一次性 animation 而不是 transition：
+   .home 的 transition 已经被 is-leaving 占用，
+   再加一个方向会互相打架。 */
+.home.is-entering {
+  animation: bm-view-in 340ms ease both;
+}
+
+@keyframes bm-view-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 /* ── 窄屏微调 ─────────────────────────────────────────── */

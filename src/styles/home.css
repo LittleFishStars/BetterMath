@@ -311,10 +311,14 @@ body[data-route='home'] {
 
 /* ── 动画 ─────────────────────────────────────────────── */
 
+/* 入场：淡入 + 极轻微上浮。
+   位移从 0.16em 收到 0.04em —— 标题字号 252px 时 0.16em 是 40px，
+   动画播放的 1.1 秒里标题会压到下方的按钮上（实测间距 -28px）。
+   现在约 10px，视觉上仍有浮起感，又不会挤到按钮。 */
 @keyframes bm-title-in {
   from {
     opacity: 0;
-    transform: translateY(0.16em) scale(0.985);
+    transform: translateY(0.04em) scale(0.99);
   }
   to {
     opacity: 1;

@@ -20,7 +20,7 @@
     <main class="home" id="view-home">
       <!-- 标题与按钮包在一个 .hero 里，居中在第 2 行。
            拆成两个独立子元素的话，它们会各自占一行 1fr / auto，
-           标题被顶到屏幕最上面 —— 这正是之前错乱的原因。 -->
+           标题被顶到屏幕最上面。 -->
       <div class="hero">
         <h1 class="hero__title" id="home-title">BetterMath</h1>
 
@@ -48,13 +48,11 @@
     <!-- ══ 章节页 ═════════════════════════════════════════════ -->
     <main class="chapters" id="view-chapters" hidden>
       <!-- 液态玻璃 header：内容由 JS 注入（分类锚点）。
-           标题本身不写在 HTML 里 —— 它由主页标题「飞」进来，
-           见 transitions.ts 的 flyTitle。 -->
+           显隐由 .is-shown 控制（见 transitions.ts）。 -->
       <header class="chapter-head" id="chapter-head">
         <div class="chapter-head__glass" aria-hidden="true"></div>
         <div class="chapter-head__inner">
           <a class="chapter-head__brand" id="head-title-slot" href="/" aria-label="返回主页">
-            <!-- 飞行中的标题会被克隆到 body 下，落位后隐藏克隆、显示这里 -->
             <span class="chapter-head__title" id="head-title">BetterMath</span>
           </a>
           <nav class="chapter-head__nav" id="chapter-nav" aria-label="章节分类"></nav>

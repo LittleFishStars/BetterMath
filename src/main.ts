@@ -17,6 +17,7 @@ import {
   leaveChapters,
   showChaptersImmediately,
   showHomeImmediately,
+  syncHeadHeight,
   type TransitionRefs,
 } from './chapters/transitions';
 
@@ -39,8 +40,6 @@ function bootstrap(): void {
   const refs: TransitionRefs = {
     homeView: must('#view-home'),
     chaptersView: must('#view-chapters'),
-    homeTitle: must('#home-title'),
-    headTitle: must('#head-title'),
     head: must('#chapter-head'),
     chaptersBody: must('#chapters-body'),
   };
@@ -118,6 +117,21 @@ function bootstrap(): void {
       router.navigate('home');
     }
   });
+
+  // header 高度随断点变化（桌面 76px / 窄屏 64px），
+  // --bm-head-h 也要跟着重量，否则窄屏上章节内容会被顶低一截
+  let headResizeRaf = 0;
+  window.addEventListener(
+    'resize',
+    () => {
+      if (headResizeRaf) return;
+      headResizeRaf = requestAnimationFrame(() => {
+        headResizeRaf = 0;
+        syncHeadHeight(refs.head);
+      });
+    },
+    { passive: true },
+  );
 
   // 页面卸载时停掉 rAF 与监听，避免与 bfcache 里的旧页面一起燃烧
   window.addEventListener('pagehide', () => field?.destroy(), { once: true });
