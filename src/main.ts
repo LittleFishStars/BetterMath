@@ -10,6 +10,9 @@ import './styles/home.css';
 import './styles/chapters.css';
 
 import { SymbolField } from './field/SymbolField';
+
+/** 模块开始执行的时刻，用于让加载页至少显示 200ms */
+const bootShownAt = performance.now();
 import { Router } from './chapters/router';
 import { bindHeadScroll, renderChapters } from './chapters/render';
 import {
@@ -20,6 +23,46 @@ import {
   syncHeadHeight,
   type TransitionRefs,
 } from './chapters/transitions';
+
+/**
+ * 收掉首屏加载页（index.html 里的 #boot）。
+ *
+ * 调用时机要卡在「样式已经应用、首帧已经画好」之后：
+ *   · 样式是 JS import 进来的，bootstrap 跑完时 CSS 一定已注入；
+ *   · 再等两帧，确保浏览器用新样式重绘过一帧，否则淡出时可能露出旧样式。
+ *
+ * 字体再单独等一小会儿：字体没到会先按 fallback 渲染，标题会「跳」一下。
+ * 但也不能干等 —— 网络慢时最长等 400ms，到点就用 fallback 顶上。
+ */
+async function dismissBoot(): Promise<void> {
+  const boot = document.getElementById('boot');
+  if (!boot) return;
+
+  // 加载页至少露个脸：极快的加载（缓存命中）下若一帧就撤掉，
+  // 反而像闪屏。以模块开始执行为零点，补足到 200ms。
+  const elapsed = performance.now() - bootShownAt;
+  if (elapsed < 200) {
+    await new Promise((resolve) => setTimeout(resolve, 200 - elapsed));
+  }
+
+  // 字体最多等 250ms：等太久加载页显得拖沓，
+  // 而 font-display: swap 保证字体迟到也只是平滑替换，不会缺字。
+  await Promise.race([
+    document.fonts?.ready.catch(() => undefined) ?? Promise.resolve(),
+    new Promise((resolve) => setTimeout(resolve, 250)),
+  ]);
+
+  await new Promise<void>((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+  );
+
+  boot.classList.add('is-done');
+
+  // 过渡结束后移除；transitionend 偶尔不触发（标签页后台等），定时器兜底
+  const remove = (): void => boot.remove();
+  boot.addEventListener('transitionend', remove, { once: true });
+  window.setTimeout(remove, 500);
+}
 
 function must<T extends HTMLElement>(selector: string): T {
   const el = document.querySelector<T>(selector);
@@ -135,6 +178,9 @@ function bootstrap(): void {
 
   // 页面卸载时停掉 rAF 与监听，避免与 bfcache 里的旧页面一起燃烧
   window.addEventListener('pagehide', () => field?.destroy(), { once: true });
+
+  // 一切就绪，收掉加载页
+  void dismissBoot();
 }
 
 if (document.readyState === 'loading') {

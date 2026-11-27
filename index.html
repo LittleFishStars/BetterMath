@@ -10,9 +10,78 @@
     />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="preload" as="font" type="font/woff2" href="/fonts/send-flowers-latin.woff2" crossorigin />
+
+    <!-- ── 首屏关键样式（内联）────────────────────────────────
+         样式表是由 JS 里 import 的（开发模式下 Vite 注入 <style>，
+         生产构建才提取成 <link>）。在它到位之前，浏览器会先把裸 HTML
+         画出来 —— 标题变成默认字体、按钮露出边框、布局全乱，也就是 FOUC。
+
+         这段内联样式不依赖任何外部资源，只做一件事：先盖一层纯色加载页。
+         JS 就绪后由 dismissBoot() 淡出并移除。 -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        background: #f7faff;
+      }
+
+      /* 加载页铺满视口，盖住还没样式的正文 */
+      #boot {
+        position: fixed;
+        inset: 0;
+        z-index: 9999;
+        display: grid;
+        place-items: center;
+        background: #f7faff;
+        transition: opacity 300ms ease;
+      }
+
+      #boot.is-done {
+        opacity: 0;
+        /* 淡出途中别再挡住点击 */
+        pointer-events: none;
+      }
+
+      /* 单个圆环，不依赖字体与图标库 */
+      #boot .boot-ring {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        border: 2px solid rgba(28, 111, 196, 0.16);
+        border-top-color: #1c6fc4;
+        animation: boot-spin 880ms linear infinite;
+      }
+
+      @keyframes boot-spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      /* 尊重减少动效：转慢一点，但保留「正在加载」的视觉提示 */
+      @media (prefers-reduced-motion: reduce) {
+        #boot .boot-ring {
+          animation-duration: 2.4s;
+        }
+      }
+    </style>
+
     <script type="module" src="/src/main.ts"></script>
   </head>
   <body data-route="home">
+    <!-- 加载页在 body 最前面，保证它先于任何内容出现。
+         JS 加载或执行失败时也不会永远卡住：下面这段内联脚本兜底移除。 -->
+    <div id="boot" role="status" aria-label="加载中">
+      <div class="boot-ring"></div>
+    </div>
+    <script>
+      // 兜底：脚本挂了（网络错误、构建异常）也要把页面露出来
+      window.setTimeout(function () {
+        var el = document.getElementById('boot');
+        if (el) el.remove();
+      }, 8000);
+    </script>
+
     <!-- 背景符号场：两个视图共用，纯装饰，对辅助技术隐藏 -->
     <canvas id="symbol-field" aria-hidden="true"></canvas>
 
