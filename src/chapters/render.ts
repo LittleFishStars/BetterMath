@@ -11,14 +11,14 @@
  * 所有视觉效果由 CSS 的 transform 与 background 表达式消费。
  * 这样滚动、缩放都不用重新计算，而且合成层交给浏览器，帧率稳。
  */
-import { CATEGORIES, type Chapter } from './data';
+import { CATEGORIES, type Chapter, type ContentItem } from './data';
 import { figureOf } from './figures';
 
 /** 卡片倾斜的最大角度（度）。再大就夸张了，文字会被拉得不好读 */
 const MAX_TILT = 7;
 
 /** 渲染一个章节卡片的 DOM */
-function createCard(chapter: Chapter): HTMLElement {
+function createCard(chapter: Chapter, onOpen: (id: string) => void): HTMLElement {
   const figure = figureOf(chapter.figure);
 
   const card = document.createElement('article');
@@ -40,6 +40,18 @@ function createCard(chapter: Chapter): HTMLElement {
       ? `${chapter.title}：${chapter.description}`
       : `${chapter.title}：${chapter.description}（敬请期待）`,
   );
+
+  // 已实现的章节整张卡都可点。用回车/空格也能进，
+  // 所以 role 是 link 时要补 keydown —— role 只改语义，不改行为。
+  if (ready) {
+    card.addEventListener('click', () => onOpen(chapter.id));
+    card.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        onOpen(chapter.id);
+      }
+    });
+  }
 
   card.innerHTML = `
     <div class="card__glare" aria-hidden="true"></div>
@@ -63,7 +75,13 @@ function createCard(chapter: Chapter): HTMLElement {
 }
 
 /** 渲染一个分类分区（标题 + 卡片网格） */
-function createSection(categoryId: string, name: string, latin: string, chapters: Chapter[]): HTMLElement {
+function createSection(
+  categoryId: string,
+  name: string,
+  latin: string,
+  chapters: Chapter[],
+  onOpen: (id: string) => void,
+): HTMLElement {
   const section = document.createElement('section');
   section.className = 'chapter-group';
   section.id = `group-${categoryId}`;
@@ -80,7 +98,7 @@ function createSection(categoryId: string, name: string, latin: string, chapters
 
   const grid = document.createElement('div');
   grid.className = 'chapter-grid';
-  for (const chapter of chapters) grid.append(createCard(chapter));
+  for (const chapter of chapters) grid.append(createCard(chapter, onOpen));
 
   section.append(head, grid);
   return section;
@@ -147,12 +165,18 @@ function bindCardMotion(card: HTMLElement): void {
 }
 
 /** 渲染整页章节内容 */
-export function renderChapters(body: HTMLElement, nav: HTMLElement): void {
+export function renderChapters(
+  body: HTMLElement,
+  nav: HTMLElement,
+  onOpen: (chapterId: string) => void,
+): void {
   body.replaceChildren();
   nav.replaceChildren();
 
   for (const category of CATEGORIES) {
-    body.append(createSection(category.id, category.name, category.latin, category.chapters));
+    body.append(
+      createSection(category.id, category.name, category.latin, category.chapters, onOpen),
+    );
 
     // header 里的分类锚点
     const link = document.createElement('a');
@@ -172,6 +196,128 @@ export function renderChapters(body: HTMLElement, nav: HTMLElement): void {
   if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
     for (const card of body.querySelectorAll<HTMLElement>('.card')) {
       bindCardMotion(card);
+    }
+  }
+}
+
+/**
+ * 只绑定「反光跟随鼠标」，不做 3D 倾斜。
+ *
+ * 内容行是单行的列表项：倾斜会让左右两端一高一低，标题和描述跟着歪，
+ * 一行字歪着读很别扭。所以这里只保留光晕，去掉 transform。
+ */
+function bindGlareOnly(el: HTMLElement): void {
+  let raf = 0;
+  let pending: { x: number; y: number } | null = null;
+
+  const apply = (): void => {
+    raf = 0;
+    if (!pending) return;
+    const { x, y } = pending;
+    pending = null;
+    el.style.setProperty('--glare-x', `${(x * 100).toFixed(1)}%`);
+    el.style.setProperty('--glare-y', `${(y * 100).toFixed(1)}%`);
+  };
+
+  el.addEventListener('pointermove', (event) => {
+    const rect = el.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+    pending = {
+      x: (event.clientX - rect.left) / rect.width,
+      y: (event.clientY - rect.top) / rect.height,
+    };
+    if (!raf) raf = requestAnimationFrame(apply);
+  });
+
+  const reset = (): void => {
+    if (raf) {
+      cancelAnimationFrame(raf);
+      raf = 0;
+    }
+    pending = null;
+    el.style.setProperty('--glare-x', '50%');
+    el.style.setProperty('--glare-y', '0%');
+  };
+
+  el.addEventListener('pointerleave', reset);
+  el.addEventListener('blur', reset);
+  reset();
+}
+
+/** 渲染一行内容卡片 */
+function createContentRow(item: ContentItem): HTMLElement {
+  const row = document.createElement('article');
+  row.className = 'row';
+  row.dataset.content = item.id;
+  // 内容条目暂时没有内页，先做成可聚焦的静态块而不是链接
+  row.tabIndex = 0;
+  row.setAttribute('aria-label', `${item.title}：${item.description}`);
+
+  row.innerHTML = `
+    <div class="row__glare" aria-hidden="true"></div>
+    <div class="row__edge" aria-hidden="true"></div>
+    <div class="row__inner">
+      <h3 class="row__title">${item.title}</h3>
+      <span class="row__desc">${item.description}</span>
+    </div>
+  `;
+
+  return row;
+}
+
+/**
+ * 渲染某个章节的内容页。
+ *
+ * 结构：返回链接 + 章节标题 + 内容列表。
+ * 标题用的是章节自己的名字与描述，所以这里不需要额外传参。
+ */
+export function renderChapterDetail(
+  container: HTMLElement,
+  chapter: Chapter,
+  items: readonly ContentItem[],
+  onBack: () => void,
+): void {
+  container.replaceChildren();
+
+  const head = document.createElement('div');
+  head.className = 'detail__head';
+
+  const back = document.createElement('a');
+  back.className = 'detail__back';
+  back.href = '/chapters';
+  back.textContent = '全部章节';
+  back.addEventListener('click', (event) => {
+    event.preventDefault();
+    onBack();
+  });
+
+  const title = document.createElement('h1');
+  title.className = 'detail__title';
+  title.textContent = chapter.title;
+
+  const desc = document.createElement('p');
+  desc.className = 'detail__desc';
+  desc.textContent = chapter.description;
+
+  head.append(back, title, desc);
+
+  const list = document.createElement('div');
+  list.className = 'row-list';
+  for (const item of items) list.append(createContentRow(item));
+
+  // 一条内容都没有时说清楚，别留个空页面
+  if (items.length === 0) {
+    const empty = document.createElement('p');
+    empty.className = 'row-list__empty';
+    empty.textContent = '这一章的内容还在整理中。';
+    list.append(empty);
+  }
+
+  container.append(head, list);
+
+  if (window.matchMedia('(hover: hover) and (pointer: fine)').matches) {
+    for (const row of list.querySelectorAll<HTMLElement>('.row')) {
+      bindGlareOnly(row);
     }
   }
 }

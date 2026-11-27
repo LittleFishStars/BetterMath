@@ -130,6 +130,10 @@
 
       <!-- 章节网格：由 chapters/render.ts 填充 -->
       <div class="chapters__body" id="chapters-body"></div>
+
+      <!-- 章节内容页：与上面的网格互斥显示（切到本章内容时网格 hidden）。
+           共用同一个 header，所以在同一个 main 里而不是另开一个视图。 -->
+      <div class="chapter-detail" id="chapter-detail" hidden></div>
     </main>
 
     <!-- 共用 <defs>：代表图形的渐变定义，集中一份 -->

@@ -184,6 +184,12 @@
   gap: clamp(0.9rem, 2vw, 1.6rem);
 }
 
+/* 内容页要收起分类锚点（那里不需要跳转到某个类）。
+   必须显式写：上面的 display: flex 会盖掉 [hidden] 自带的 display: none。 */
+.chapter-head__nav[hidden] {
+  display: none;
+}
+
 .chapter-head__link {
   position: relative;
   font-size: 0.86rem;
@@ -586,6 +592,223 @@
   to {
     opacity: 1;
   }
+}
+
+/* ══ 章节内容页 ═══════════════════════════════════════════
+   与章节网格共用一个 header、互相 hidden 切换，
+   所以顶部留白由父级 .chapters 的 padding-top 负责。 */
+
+.chapter-detail {
+  /* 比章节网格（1320）窄一档。
+     单行卡片左右两端一拉开，标题和描述中间会空出上千像素，读起来很散；
+     收窄到 980 之后两者的距离才是「一眼扫过」的距离。
+     居中而不是左对齐 —— 页头全宽、正文居中是常见的文档式布局。 */
+  max-width: 980px;
+  margin: 0 auto;
+  padding: clamp(1.6rem, 4vh, 3rem) clamp(1.1rem, 4vw, 3rem) 5rem;
+
+  /* 由 JS 加 .is-revealed 淡入。元素从 hidden 变可见的那一帧加 class
+     不会触发过渡，所以 main.ts 里是先摘再下一帧加。 */
+  opacity: 0;
+  transform: translateY(10px);
+  transition:
+    opacity 320ms ease,
+    transform 320ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.chapter-detail[hidden] {
+  display: none;
+}
+
+.chapter-detail.is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+/* 返回链接 + 章节标题 + 一句话描述 */
+.detail__head {
+  margin-bottom: clamp(1.4rem, 3vh, 2rem);
+}
+
+.detail__back {
+  display: inline-block;
+  font-size: 0.79rem;
+  letter-spacing: 0.02em;
+  color: var(--bm-text-muted);
+  text-decoration: none;
+  transition: color 200ms ease;
+}
+
+.detail__back::before {
+  content: '←';
+  margin-right: 0.35em;
+}
+
+.detail__back:hover,
+.detail__back:focus-visible {
+  color: var(--bm-accent);
+}
+
+.detail__title {
+  margin: 0.85rem 0 0;
+  font-size: clamp(1.45rem, 3.1vw, 1.95rem);
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.012em;
+  color: var(--bm-text-strong);
+}
+
+.detail__desc {
+  margin: 0.4rem 0 0;
+  font-size: 0.87rem;
+  line-height: 1.6;
+  color: var(--bm-text-muted);
+}
+
+.row-list {
+  display: grid;
+  gap: 0.68rem;
+}
+
+.row-list__empty {
+  margin: 0;
+  padding: 1.2rem 0;
+  font-size: 0.85rem;
+  color: var(--bm-text-muted);
+}
+
+/* ── 内容行 ───────────────────────────────────────────────
+   与章节卡片同一套玻璃质感（同款白渐变 + inset 高光 + 淡阴影），
+   但**没有 transform**：不做 3D 倾斜、也不浮起。
+   一行字歪着读很别扭，这是它和章节卡片唯一的形态差别。 */
+
+.row {
+  /* 由 render.ts 的 pointermove 写入，无鼠标时的初始值 */
+  --glare-x: 50%;
+  --glare-y: 0%;
+
+  position: relative;
+  display: block;
+  border-radius: 14px;
+  overflow: hidden;
+  isolation: isolate;
+
+  background: linear-gradient(
+    155deg,
+    rgba(255, 255, 255, 0.78) 0%,
+    rgba(255, 255, 255, 0.62) 46%,
+    rgba(255, 255, 255, 0.74) 100%
+  );
+  background-color: rgba(250, 253, 255, 0.7);
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.55),
+    0 1px 2px rgba(18, 56, 110, 0.055),
+    0 6px 16px -12px rgba(18, 56, 110, 0.34);
+
+  /* 只过渡阴影：位置与尺寸全程不动 */
+  transition: box-shadow 260ms var(--bm-ease-out);
+  outline: none;
+}
+
+/* 悬停只把阴影压深一点，制造「凑近了看」的感觉，不位移 */
+.row:hover,
+.row:focus-visible {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 1),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.7),
+    0 2px 4px rgba(18, 56, 110, 0.055),
+    0 12px 26px -14px rgba(18, 56, 110, 0.36);
+}
+
+/* 反光：同样的径向圆，但整体比卡片的淡一半。
+   行高只有 60 来像素，光斑半径也收小，否则一眼看去是一整片白。 */
+.row__glare {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    150px circle at var(--glare-x) var(--glare-y),
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(214, 236, 255, 0.24) 26%,
+    rgba(150, 200, 250, 0.07) 52%,
+    rgba(150, 200, 250, 0) 72%
+  );
+  opacity: 0;
+  transition: opacity 300ms var(--bm-ease-out);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.row:hover .row__glare,
+.row:focus-visible .row__glare {
+  opacity: 1;
+}
+
+/* 边缘反光同卡片，但更薄 */
+.row__edge {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  transition: opacity 300ms var(--bm-ease-out);
+  pointer-events: none;
+  z-index: 3;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    inset 0 -1px 0 rgba(255, 255, 255, 0.35),
+    inset 1px 0 0 rgba(255, 255, 255, 0.5),
+    inset -1px 0 0 rgba(255, 255, 255, 0.5);
+}
+
+.row:hover .row__edge,
+.row:focus-visible .row__edge {
+  opacity: 1;
+}
+
+/* 单行：标题贴左、描述贴右。
+   baseline 对齐让两行不同字号的文字坐在同一根基线上。 */
+.row__inner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding: 0.95rem 1.15rem;
+}
+
+.row__title {
+  margin: 0;
+  min-width: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.45;
+  letter-spacing: 0.012em;
+  color: var(--bm-text-strong);
+
+  /* 单行卡片：标题过长就省略，不换行、不撑高 */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row__desc {
+  flex-shrink: 0;
+  /* 55% 在窄屏上刚好差几个字放不下（实测「…曲边梯形的面积」会被截掉末尾）。
+     放宽到 62%，常见的十几字描述能整句显示，再长才省略。 */
+  max-width: 62%;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  letter-spacing: 0.008em;
+  color: var(--bm-text-muted);
+  text-align: right;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ── 窄屏微调 ─────────────────────────────────────────── */

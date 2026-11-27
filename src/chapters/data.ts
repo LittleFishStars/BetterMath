@@ -70,6 +70,7 @@ export const CATEGORIES: readonly Category[] = [
         title: '数学分析',
         description: '极限、连续与无穷小',
         figure: 'limit',
+        ready: true,
       },
       {
         id: 'real-analysis',
@@ -175,3 +176,39 @@ export const CATEGORIES: readonly Category[] = [
 
 /** 扁平化后的全部章节，路由查找与总数统计用 */
 export const ALL_CHAPTERS: readonly Chapter[] = CATEGORIES.flatMap((c) => c.chapters);
+
+/** 按 id 找章节，详情页路由用 */
+export function findChapter(id: string): Chapter | undefined {
+  return ALL_CHAPTERS.find((c) => c.id === id);
+}
+
+/**
+ * 章节内容条目
+ *
+ * 详情页是一列单行卡片：标题靠左、描述靠右。
+ * 描述要短（一行放得下），长了会挤压标题。
+ */
+export interface ContentItem {
+  /** 稳定的 id，用于 DOM 标识与将来的小节锚点 */
+  id: string;
+  title: string;
+  description: string;
+}
+
+/**
+ * 各章节的内容列表。
+ *
+ * 没有登记的章节 = 详情页还没做（卡片上显示「敬请期待」）。
+ * 注意这与 `Chapter.ready` 是两回事：ready 决定卡片能不能点，
+ * 这里决定点进去有什么。两者要一起维护 —— 所以章节做完时，
+ * 在 CHAPTER_CONTENTS 里加条目、同时给该章节写上 ready: true。
+ */
+export const CHAPTER_CONTENTS: Readonly<Record<string, readonly ContentItem[]>> = {
+  'mathematical-analysis': [
+    {
+      id: 'riemann-integral',
+      title: '定积分与黎曼和',
+      description: '用矩形分割逼近曲边梯形的面积',
+    },
+  ],
+};
