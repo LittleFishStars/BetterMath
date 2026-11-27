@@ -6,7 +6,8 @@
 # 与博客（MyHomeWeb）同一套落地方式：两者都走「本地构建 + rsync」。
 # 服务器上的 self-hosted runner 已于 2026-11-27 撤除（省约 100 MB 常驻内存）。
 # 服务器侧只有两个静态要素，改它们不用跑本脚本：
-#   /etc/caddy/sites/41-math.caddy             （Caddy 站点配置，改动后自动 reload）
+#   /etc/caddy/sites/41-math.caddy             （Caddy 站点配置，改完要手动
+#                                                caddy validate + systemctl reload caddy）
 #   /etc/nginx/ssl/math.{fullchain.crt,key}    （acme.sh DNS-01 签发，路径沿用旧目录名）
 #
 # 环境变量可覆盖：
@@ -46,6 +47,13 @@ echo "== 5/5 健康检查（源站，绕过 Cloudflare）=="
 code=$(curl -sS --max-time 15 --resolve "$DOMAIN:443:$ORIGIN" -o /dev/null -w '%{http_code}' "https://$DOMAIN/" || true)
 echo "https://$DOMAIN/ → HTTP $code"
 [ "$code" = "200" ] || { echo "源站返回 $code，部署失败"; exit 1; }
+
+# SPA 路由自检：/chapters 是前端路由，文件系统里没有这个文件，
+# 靠 Caddy 回落到 index.html 才能打开。配置一旦退回「未知路径就 404」，
+# 站内导航仍然正常、只有直接访问和刷新会坏 —— 很容易漏掉，所以放进部署闸门。
+route=$(curl -sS --max-time 15 --resolve "$DOMAIN:443:$ORIGIN" -o /dev/null -w '%{http_code}' "https://$DOMAIN/chapters" || true)
+echo "  /chapters → HTTP $route"
+[ "$route" = "200" ] || { echo "SPA 路由回落失效（/chapters 返回 $route），检查 Caddy 的 try_files/handle"; exit 1; }
 
 css=$(grep -oE '/assets/[^"]+\.css' dist/index.html | head -1)
 js=$(grep -oE '/assets/[^"]+\.js' dist/index.html | head -1)

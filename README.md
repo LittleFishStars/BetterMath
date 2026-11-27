@@ -208,57 +208,46 @@ mask-image: radial-gradient(circle at 50% 100%,
 
 ## 部署
 
-线上地址 **[math.ylxc.top](https://math.ylxc.top/)**，跑在 YlxcServer（与博客同一台机器、同一套
-Cloudflare → nginx 回源）。
+线上地址 **[math.ylxc.top](https://math.ylxc.top/)**，跑在 YlxcServer（与博客同一台机器，
+Cloudflare → Caddy 回源）。
 
-### push 即部署（CI，当前主路径）
-
-`.github/workflows/deploy.yml` 跑在服务器本机的自托管 runner 上：
-checkout → npm ci → build → 产物闸门 → `rsync --delete` → 源站自检。
-推 `main` 即自动发布。
-
-```bash
-git push origin main      # 触发部署
-gh run list --repo LittleFishStars/BetterMath
-```
-
-### 本地手动发布（应急）
+### 发布
 
 ```bash
 bash scripts/deploy.sh    # 构建 → 产物闸门 → rsync --delete → 源站健康检查
 ```
 
+服务器上的 self-hosted runner 已于 2026-11-27 撤除（省约 100 MB 常驻内存），
+现在只有本地手动这一条路径。
+
 ### 服务器侧布局
 
 | 项 | 位置 |
 | --- | --- |
-| runner 实例 | `/opt/actions-runner-bettermath`，systemd 单元 `actions.runner.bettermath.YlxcServer-bettermath.service` |
-| runner 标签 | `bettermath-deploy`（博客的 `myhomeweb-deploy` 是另一个实例，互不干扰） |
-| docroot | `/var/www/bettermath`，属主 `ghrunner`（runner 写）/ `www-data`（nginx 读） |
-| nginx 站点 | `/etc/nginx/sites-available/math.ylxc.top`，仓库内副本见 [deploy/math.ylxc.top](deploy/math.ylxc.top) |
-| 证书 | `/etc/nginx/ssl/math.{fullchain.crt,key}`，acme.sh DNS-01（`dns_cf`, EC-256），自动续期 |
+| docroot | `/var/www/bettermath`，属主 `root:www-data`（Caddy 读） |
+| Caddy 站点 | `/etc/caddy/sites/41-math.caddy`，仓库内副本见 [deploy/41-math.caddy](deploy/41-math.caddy) |
+| 证书 | `/etc/nginx/ssl/math.{fullchain.crt,key}`（路径沿用旧目录名），acme.sh DNS-01 自动续期 |
+| 日志 | `/var/log/caddy/access.log` |
 
-### 关于「一个 runner 管所有站点」
+### 几条约定
 
-GitHub **没有个人账号级 runner**：`POST /user/runners/registration-token` 与
-`GET /user/runners` 都返回 404，runner 本体 `config.sh --url https://github.com/<账号>`
-也会被 `POST /api.github.com/actions/runner-registration` 拒掉。能服务多个仓库的
-唯一作用域是**组织级** runner（需组织 admin + token 带 `admin:org` scope）。
+- **独立 docroot，不塞进博客目录**。博客由 CI 用 `rsync --delete` 发布，
+  `/root/Web/MyHomeWeb/` 里放任何额外文件都会在下次博客部署时被删掉。
+- `index.html` 一律 `Cache-Control: no-cache`；`/assets/`（Vite 内容哈希文件名）与
+  `/fonts/` 走 `immutable` 长缓存。改字体文件必须换文件名，否则浏览器会一直用旧的。
+- **前端是 SPA，必须回落 `index.html`**。`/` 和 `/chapters` 都是 History API 路由，
+  文件系统里没有对应文件。Caddy 里用「带扩展名走 file_server，其余 rewrite 到
+  index.html」两段 handle 实现 —— 这样 `/chapters` 能正常打开，而缺失的
+  `/assets/xxx.js` 仍然老实返回 404（若一并回落到 HTML，浏览器会拿一份 HTML
+  当 JS 解析，报语法错误且极难定位）。
+  > 这条是踩过的坑：最初配置写的是「单页站点，不存在的路径就该 404」，
+  > 站点只有主页时没问题，加了章节页后直接访问/刷新 `/chapters` 就 404。
+- 改 Caddy 配置：先改 `deploy/41-math.caddy`，传到服务器后
+  `caddy validate --config /etc/caddy/Caddyfile && systemctl reload caddy`。
+  备份文件不要用 `.caddy` 结尾（`import sites/*.caddy` 会把它一起加载）。
+- 验证要看源站：`curl --resolve math.ylxc.top:443:47.106.212.155`，
+  `openssl s_client -servername` 期望 `CN=math.ylxc.top`
+  （直连 Cloudflare 看到的是边缘证书 `CN=ylxc.top`，不算数）。
 
-因此本仓库采用**同机双实例**：博客用 `/opt/actions-runner`（标签 `myhomeweb-deploy`），
-本仓库用 `/opt/actions-runner-bettermath`（标签 `bettermath-deploy`）。两个实例共用同一份
-runner 二进制，各自独立目录与 systemd 单元，互不影响；常驻内存各约 25 MB，
-机器 1.6 GiB 撑得住。构建期才是内存大头，所以两边 workflow 都用 `concurrency` 串行。
-
-几条约定：
-
-- **独立 docroot，不塞进博客目录**。博客由 CI 用 `rsync --delete` 发布，`/root/Web/MyHomeWeb/`
-  里放任何额外文件都会在下次博客部署时被删掉。
-- `index.html` 一律 `Cache-Control: no-cache`；`/assets/`（Vite 内容哈希文件名）与 `/fonts/`
-  走 `immutable` 长缓存。改字体文件必须换文件名，否则浏览器会一直用旧的。
-- 站点没有 SPA 路由，未知路径 `=404`，不要改成回落到 `index.html`。
-- 改 nginx 配置：先改 `deploy/math.ylxc.top`，拷到服务器 `sites-available` 后 `nginx -t && systemctl reload nginx`；
-  **备份文件不要留在 `sites-available`**（nginx-ui 会当成站点导入），挪到 `/root/nginx-backups/`。
-  新增站点后需 `systemctl restart nginx-ui` 才会出现在面板里。
 - 验证要看源站：`curl --resolve math.ylxc.top:443:47.106.212.155`，`openssl s_client -servername`
   期望 `CN=math.ylxc.top`（直连 Cloudflare 看到的是边缘证书 `CN=ylxc.top`，不算数）。

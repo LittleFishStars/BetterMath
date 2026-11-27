@@ -1,0 +1,57 @@
+# math.ylxc.top —— BetterMath 数学可视化静态站（Caddy 版）
+#
+# 前端用 History API 管着 / 和 /chapters 两条路径，属于单页应用（SPA）。
+# 部署：本地 `bash scripts/deploy.sh`（构建 + rsync 到 /var/www/bettermath）
+
+https://math.ylxc.top {
+	log default
+	root * /var/www/bettermath
+	encode gzip
+	request_body {
+		max_size 1MB
+	}
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options SAMEORIGIN
+	}
+
+	# 入口页每次回源确认（文件名不带指纹，长缓存会把改版钉死）
+	@rootpath path /
+	header @rootpath Cache-Control "no-cache"
+	@index path /index.html
+	header @index Cache-Control "no-cache"
+
+	# Vite 产物：文件名带内容哈希，长缓存
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	# 自托管字体：长缓存 + 允许跨域
+	@fonts path /fonts/*
+	header @fonts {
+		Cache-Control "public, max-age=31536000, immutable"
+		Access-Control-Allow-Origin "*"
+	}
+
+	@fav path /favicon.svg
+	header @fav Cache-Control "public, max-age=604800"
+
+	# ── 路由 ──────────────────────────────────────────────
+	# 单页应用：/ 与 /chapters 都是前端路由，文件系统里没有对应的真实文件。
+	#
+	# 带扩展名的请求（.css/.js/.woff2/.svg…）按真实文件处理 ——
+	# 找不到就老实 404，不要把 index.html 当脚本返回：那种情况下浏览器
+	# 会拿到一份 HTML 去当 JS 解析，报语法错误，排查时极难定位。
+	@hasExt path_regexp \.[A-Za-z0-9]+$
+	handle @hasExt {
+		file_server
+	}
+
+	# 其余路径（无扩展名）交给前端路由，回落到 index.html。
+	# 没有这一段的话，直接访问或刷新 /chapters 会 404。
+	handle {
+		rewrite * /index.html
+		file_server
+	}
+}
