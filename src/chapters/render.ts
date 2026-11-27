@@ -24,11 +24,22 @@ function createCard(chapter: Chapter): HTMLElement {
   const card = document.createElement('article');
   card.className = 'card';
   card.dataset.chapter = chapter.id;
-  // 目前还没有章节内页，卡片本身先做成可聚焦的容器而非链接，
-  // 用 tabindex 让它能进键盘序，避免只有鼠标用户能感知悬停效果
+
+  // 还没做出详情页的章节，左下角挂一个「敬请期待」标签。
+  // 语义上这类卡片**不是**可点链接 —— 声明成 role="link" 会让屏幕阅读器
+  // 报「链接」，读屏用户点了却什么也不发生。所以 role 跟着 ready 走。
+  const ready = chapter.ready === true;
+  if (!ready) card.classList.add('is-soon');
+
+  // tabindex 保留：键盘用户也要能聚焦、能感受到悬停与倾斜效果
   card.tabIndex = 0;
-  card.setAttribute('role', 'link');
-  card.setAttribute('aria-label', `${chapter.title}：${chapter.description}`);
+  card.setAttribute('role', ready ? 'link' : 'article');
+  card.setAttribute(
+    'aria-label',
+    ready
+      ? `${chapter.title}：${chapter.description}`
+      : `${chapter.title}：${chapter.description}（敬请期待）`,
+  );
 
   card.innerHTML = `
     <div class="card__glare" aria-hidden="true"></div>
@@ -45,6 +56,7 @@ function createCard(chapter: Chapter): HTMLElement {
         </svg>
       </div>
     </div>
+    ${ready ? '' : '<span class="card__badge" aria-hidden="true">敬请期待</span>'}
   `;
 
   return card;

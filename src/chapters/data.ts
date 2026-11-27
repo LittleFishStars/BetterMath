@@ -21,6 +21,14 @@ export interface Chapter {
   description: string;
   /** 代表图形的键，见 figures.ts */
   figure: string;
+  /**
+   * 详情页是否已就绪。
+   *
+   * 缺省（不写）视为「还没做」，卡片左下角会显示「敬请期待」。
+   * 将来某个章节做完了，回来加一行 `ready: true`，标签自动消失 ——
+   * 不需要去改渲染逻辑。
+   */
+  ready?: boolean;
 }
 
 export interface Category {

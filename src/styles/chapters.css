@@ -369,6 +369,12 @@
   outline: none;
 }
 
+/* 还没做出详情页的卡片：不显示「可点」的手型指针。
+   pointer 配合 role="link" 会让人以为点了有东西，实际什么也不会发生。 */
+.card.is-soon {
+  cursor: default;
+}
+
 /* 悬停：稍微放大浮出，阴影加深加远 */
 .card:hover,
 .card:focus-visible {
@@ -483,6 +489,37 @@
   color: var(--bm-text-strong);
 }
 
+/* ── 「敬请期待」标签 ─────────────────────────────────
+   放在卡片左下角：那里是空白区（文字在左上、图形在右下），
+   绝对定位比塞进 grid 更好控制 —— 标签不该参与内容排版，
+   否则描述长短一变，标签位置就跟着漂。
+
+   填充色不提边框：靠一层极浅的蓝底把标签和卡片区分开，
+   对齐「用色阶画层级、不画框」的既有做法。 */
+.card__badge {
+  position: absolute;
+  left: 1.1rem;
+  bottom: 0.9rem;
+  z-index: 2;
+
+  display: inline-flex;
+  align-items: center;
+  height: 1.3rem;
+  padding: 0 0.52rem;
+  border-radius: 999px;
+
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+
+  /* 0.07 的蓝几乎看不出来，但用来看得出「这里有一块东西」；
+     文字压到 #4a6285，在叠出来的 #f3f8fd 上对比度约 5.7:1，过 AA */
+  color: #4a6285;
+  background: rgba(28, 111, 196, 0.07);
+}
+
 .card__desc {
   margin: 0.42rem 0 0;
   font-size: 0.8rem;
@@ -592,6 +629,13 @@
   .card__content {
     min-height: 128px;
     padding: 0.9rem 0.9rem 0.8rem 1rem;
+  }
+
+  /* 窄屏内边距略小，标签同步贴边 */
+  .card__badge {
+    left: 1rem;
+    bottom: 0.8rem;
+    font-size: 0.68rem;
   }
 }
 

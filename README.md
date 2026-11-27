@@ -104,6 +104,12 @@ public/fonts/           Send Flowers woff2
 泛函分析、常微分方程、偏微分方程、概率论、数理统计）· 几何 3（解析几何、
 高等几何、微分几何）· 其他 4（数值分析、离散数学、高中数学、大学物理）。
 
+**「敬请期待」标签**：详情页还没做的章节，卡片左下角挂一枚标签。
+由 `Chapter.ready` 驱动 —— 缺省（不写）就是「还没做」，做完某章回来加一行
+`ready: true` 即可，标签、`role="article"`、`cursor: default`、
+`aria-label` 上的「（敬请期待）」四处会一起跟着变。目前 17 章都还没做详情页，
+所以全都带标签。
+
 **卡片**：毛玻璃底 + 右下角内联 SVG 代表图形 + 悬停 3D 倾斜。
 倾斜由 `pointermove` 写 CSS 变量（`--tilt-x/--tilt-y/--glare-x/--glare-y`）驱动，
 一帧只写一次（`requestAnimationFrame` 合帧），transform 与反光全交给 CSS 消费。
