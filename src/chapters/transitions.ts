@@ -6,10 +6,11 @@
  *   0ms    克隆主页标题，钉在它原来的位置（fixed），原标题隐藏
  *   0ms    主页的按钮与页脚开始淡出
  *   0ms    标题开始缩小、飞向左上角 header 里的插槽
- *   180ms  液态玻璃 header 从顶部滑下来（等标题飞了一小段再起身，
+ *   260ms  液态玻璃 header 从顶部滑下来（等标题飞了一小段再起身，
  *          看起来像 header 去「接住」标题，而不是两者各飞各的）
- *   560ms  标题落位：隐藏克隆，露出 header 里真正的标题
- *   620ms  三组章节卡片依次浮现
+ *   880ms  header 到位（比标题早 70ms，像「伸出去接住」）
+ *   950ms  标题落位：隐藏克隆，露出 header 里真正的标题
+ *   950ms+ 三组章节卡片依次浮现
  *
  * 反向（章节页 → 主页）把上面的顺序倒过来。
  *
@@ -24,14 +25,23 @@
  */
 
 /** 标题落位动画时长（毫秒） */
-const FLY_MS = 560;
+const FLY_MS = 950;
 /** header 滑出的时长 */
-const HEAD_MS = 480;
+const HEAD_MS = 620;
 /** header 起步比标题晚多久 —— 让它看起来是「去接」*/
-const HEAD_DELAY = 180;
-/** 缓动：起手快、收尾稳，飞行看起来才有「被吸过去」的感觉 */
-const FLY_EASE = 'cubic-bezier(0.22, 0.68, 0.16, 1)';
-const HEAD_EASE = 'cubic-bezier(0.16, 0.84, 0.28, 1)';
+const HEAD_DELAY = 260;
+/**
+ * 缓动：起步平缓、中段加速、收尾减速。
+ *
+ * 早先用的是 cubic-bezier(0.22, 0.68, 0.16, 1) —— 控制点在 22% 处就
+ * 达到 68% 进度，等于「一瞬间弹出去再慢慢停」。配合 560ms 的时长，
+ * 观感是标题「嗖」一下就不见了，看不清它是怎么过去的。
+ *
+ * 换成 Material 的标准减速曲线：前 40% 几乎没动，中间才加速，
+ * 末端缓缓贴进目标位置。整个过程是可读的。
+ */
+const FLY_EASE = 'cubic-bezier(0.4, 0, 0.2, 1)';
+const HEAD_EASE = 'cubic-bezier(0.32, 0, 0.24, 1)';
 
 function prefersReducedMotion(): boolean {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -51,10 +61,19 @@ function nextFrame(): Promise<void> {
 async function fly(
   source: HTMLElement,
   target: HTMLElement,
-  { duration = FLY_MS }: { duration?: number } = {},
+  {
+    duration = FLY_MS,
+    toRect,
+  }: { duration?: number; toRect?: DOMRect } = {},
 ): Promise<void> {
   const from = source.getBoundingClientRect();
-  const to = target.getBoundingClientRect();
+  // 目标位置允许外部传入。
+  //
+  // 必须支持这个参数：进入章节页时 header 还停在 translateY(-100%)（屏幕外），
+  // 此刻调 target.getBoundingClientRect() 拿到的是屏幕上方 76px 处的位置，
+  // 克隆会飞出视口上缘 —— 实测落点在 top: -54px。
+  // 调用方会在 header 归位的瞬间先把落点量好，再交给这里。
+  const to = toRect ?? target.getBoundingClientRect();
 
   // 源元素可能比目标大也可能小（进出两个方向对称），
   // 缩放比按宽度算：同一段文字、同一种字体，宽高比一致，单用宽度就够
@@ -162,15 +181,18 @@ export async function enterChapters(refs: TransitionRefs): Promise<void> {
   // 2) header 摆到最终位置量标题落点，再弹回顶部
   head.style.transform = 'translateY(0)';
   head.style.opacity = '0';
+  headTitle.style.visibility = 'hidden';
   await nextFrame();
   const headRect = head.getBoundingClientRect();
+  // 标题落点必须在 header 处于最终位置时量，量完再弹回去
+  const titleRect = headTitle.getBoundingClientRect();
   head.style.transform = 'translateY(-100%)';
 
   // 3) 主页开始退场（只淡出按钮与页脚，标题留给飞行）
   homeView.classList.add('is-leaving');
 
   // 4) 飞
-  const flight = fly(homeTitle, headTitle);
+  const flight = fly(homeTitle, headTitle, { toRect: titleRect });
 
   // 5) header 从顶部滑下（略晚一点起步）
   slideHead(head, true);
