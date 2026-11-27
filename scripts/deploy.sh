@@ -51,9 +51,11 @@ echo "https://$DOMAIN/ → HTTP $code"
 # SPA 路由自检：/chapters 是前端路由，文件系统里没有这个文件，
 # 靠 Caddy 回落到 index.html 才能打开。配置一旦退回「未知路径就 404」，
 # 站内导航仍然正常、只有直接访问和刷新会坏 —— 很容易漏掉，所以放进部署闸门。
-route=$(curl -sS --max-time 15 --resolve "$DOMAIN:443:$ORIGIN" -o /dev/null -w '%{http_code}' "https://$DOMAIN/chapters" || true)
-echo "  /chapters → HTTP $route"
-[ "$route" = "200" ] || { echo "SPA 路由回落失效（/chapters 返回 $route），检查 Caddy 的 try_files/handle"; exit 1; }
+for route in /chapters /chapters/mathematical-analysis; do
+  code=$(curl -sS --max-time 15 --resolve "$DOMAIN:443:$ORIGIN" -o /dev/null -w '%{http_code}' "https://$DOMAIN$route" || true)
+  echo "  $route → HTTP $code"
+  [ "$code" = "200" ] || { echo "SPA 路由回落失效（$route 返回 $code），检查 Caddy 的 try_files/handle"; exit 1; }
+done
 
 css=$(grep -oE '/assets/[^"]+\.css' dist/index.html | head -1)
 js=$(grep -oE '/assets/[^"]+\.js' dist/index.html | head -1)
