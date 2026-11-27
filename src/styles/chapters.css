@@ -22,7 +22,9 @@
 }
 
 .chapters__body {
-  max-width: 1240px;
+  /* 1320 = 4 张 288 卡 + 3 个 20 间距 + 96 内边距，刚好排满一行。
+     用 1240 时只能排 3 列，4 个章节的分区会变成「3 + 1」，最后一张落单。 */
+  max-width: 1320px;
   margin: 0 auto;
   padding: clamp(1.6rem, 4vh, 3rem) clamp(1.1rem, 4vw, 3rem) 5rem;
 
@@ -136,7 +138,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  max-width: 1240px;
+  /* 与 .chapters__body 同宽，header 里的标题才和下方内容左对齐 */
+  max-width: 1320px;
   margin: 0 auto;
   padding: 0 clamp(1.1rem, 4vw, 3rem);
   /* 高度写死，飞行落点才好稳定。76 是「标题 28px + 上下各 24px」 */
@@ -460,8 +463,9 @@
   align-items: end;
   gap: 0.75rem;
   height: 100%;
-  /* 兜一个下限：万一某行只有一张很短的卡，也不至于被压扁 */
-  min-height: 138px;
+  /* 内容区下限。盒模型改为 border-box 后这个值是真实高度：
+     84px 图形 + 上下 padding 32px = 116，留 36px 给标题与描述的两行呼吸 */
+  min-height: 152px;
   padding: 1rem 1rem 0.9rem 1.1rem;
 }
 
@@ -494,8 +498,8 @@
 
 /* 右下角的代表图形 */
 .card__figure {
-  width: 92px;
-  height: 92px;
+  width: 84px;
+  height: 84px;
   flex-shrink: 0;
   opacity: 0.85;
   transition:
@@ -576,8 +580,8 @@
   }
 
   .card__figure {
-    width: 68px;
-    height: 68px;
+    width: 64px;
+    height: 64px;
   }
 
   /* 窄屏是单列，卡片很宽，高度压低一些才不显得空 */
@@ -586,7 +590,7 @@
   }
 
   .card__content {
-    min-height: 112px;
+    min-height: 128px;
     padding: 0.9rem 0.9rem 0.8rem 1rem;
   }
 }

@@ -8,6 +8,18 @@
  * 最浅的那一段也过线 —— 渐变字必须按最浅的段落算，否则左半边会不达标。
  */
 
+/* ── 全局盒模型 ─────────────────────────────────────────
+   必须显式声明。浏览器默认是 content-box，此时
+   `height: 100%` + `padding` 的元素会比父级高出 padding 的量 ——
+   卡片的 __content 就因此把代表图形顶出了卡片底边 15px。
+
+   注意这条规则要在所有组件样式之前生效（tokens.css 先于 home/chapters 加载）。 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 :root {
   /* ── 底色 ───────────────────────────────────────────────── */
   --bm-canvas: #f7faff;
@@ -46,7 +58,19 @@
 
 /* 系统开了「减少动态效果」时，把所有动画时长压到近乎瞬时 */
 @media (prefers-reduced-motion: reduce) {
-  :root {
+  /* ── 全局盒模型 ─────────────────────────────────────────
+   必须显式声明。浏览器默认是 content-box，此时
+   `height: 100%` + `padding` 的元素会比父级高出 padding 的量 ——
+   卡片的 __content 就因此把代表图形顶出了卡片底边 15px。
+
+   注意这条规则要在所有组件样式之前生效（tokens.css 先于 home/chapters 加载）。 */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+:root {
     --bm-duration-enter: 0.01s;
   }
 }

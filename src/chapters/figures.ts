@@ -61,7 +61,7 @@ export const FIGURES: Record<string, Figure> = {
     `,
   },
 
-  // 近世代数：正六边形的对称群。六条对称轴 + 旋转提示弧
+  // 抽象代数：正六边形的对称群。六条对称轴 + 旋转提示弧
   group: {
     label: '正六边形及其对称轴，表示群的结构',
     body: `
@@ -75,19 +75,6 @@ export const FIGURES: Record<string, Figure> = {
     `,
   },
 
-  // 算子代数：谱。单位圆盘内的点谱 + 一条连续谱弧
-  spectrum: {
-    label: '复平面上的谱集合',
-    body: `
-      <circle cx="60" cy="60" r="40" ${S_THIN} opacity="0.4" />
-      <circle cx="60" cy="60" r="26" ${S} />
-      <path d="M34 60 A26 26 0 0 1 86 60" stroke="url(#bm-fig-line)" stroke-width="3.4"
-        fill="none" stroke-linecap="round" opacity="0.85" />
-      <circle cx="60" cy="60" r="2.4" fill="#12386e" />
-      <circle cx="76" cy="38" r="2.4" fill="#2a4ca0" />
-      <circle cx="40" cy="78" r="2.4" fill="#2a4ca0" />
-    `,
-  },
 
   /* ── 分析 ───────────────────────────────────────────── */
 
@@ -143,6 +130,46 @@ export const FIGURES: Record<string, Figure> = {
     `,
   },
 
+  // 常微分方程：方向场 + 两条积分曲线。
+  // 斜线段表示「每一点的斜率」，积分曲线处处与它们相切。
+  //
+  // 两条曲线**不能相交**：一阶方程满足解的唯一性，过同一点的积分曲线只有一条。
+  // 早先画成 X 形交叉，插图里看着像两个抛物线叠一起，数学上也不对。
+  // 现在两条曲线平行、只是起点不同。
+  ode: {
+    label: '方向场中的两条积分曲线',
+    body: `
+      <line x1="40" y1="20" x2="56" y2="25" ${S_THIN} opacity="0.5" />
+      <line x1="62" y1="22" x2="78" y2="27" ${S_THIN} opacity="0.5" />
+      <line x1="84" y1="26" x2="100" y2="31" ${S_THIN} opacity="0.5" />
+      <line x1="24" y1="40" x2="40" y2="45" ${S_THIN} opacity="0.5" />
+      <line x1="46" y1="42" x2="62" y2="47" ${S_THIN} opacity="0.5" />
+      <line x1="68" y1="44" x2="84" y2="49" ${S_THIN} opacity="0.5" />
+      <line x1="24" y1="62" x2="40" y2="67" ${S_THIN} opacity="0.5" />
+      <line x1="46" y1="64" x2="62" y2="69" ${S_THIN} opacity="0.5" />
+      <line x1="68" y1="66" x2="84" y2="71" ${S_THIN} opacity="0.5" />
+      <line x1="24" y1="84" x2="40" y2="89" ${S_THIN} opacity="0.5" />
+      <line x1="46" y1="86" x2="62" y2="91" ${S_THIN} opacity="0.5" />
+      <path d="M18 30 C34 36 44 48 58 60 C72 72 86 82 100 88" ${S} />
+      <path d="M18 52 C34 58 44 70 58 82 C66 89 72 93 78 96" ${S} opacity="0.6" />
+      <circle cx="46" cy="49" r="3" fill="#12386e" />
+    `,
+  },
+
+  // 偏微分方程：点热源周围的等温线。
+  // 早先画的是三条平行波浪，和「大学物理」的行波图形撞了；
+  // 同心闭合的等值线才是热传导方程（拉普拉斯/热方程）的典型图像。
+  pde: {
+    label: '方形区域中点热源周围的等温线',
+    body: `
+      <rect x="20" y="24" width="80" height="72" ${S_THIN} opacity="0.4" />
+      <ellipse cx="60" cy="60" rx="34" ry="27" ${S_THIN} opacity="0.45" />
+      <ellipse cx="60" cy="60" rx="22" ry="17" ${S_THIN} opacity="0.75" />
+      <ellipse cx="60" cy="60" rx="11" ry="8.5" ${S} />
+      <circle cx="60" cy="60" r="2.8" fill="#12386e" />
+    `,
+  },
+
   // 概率论：正态分布曲线
   bell: {
     label: '正态分布的概率密度曲线',
@@ -175,7 +202,7 @@ export const FIGURES: Record<string, Figure> = {
     `,
   },
 
-  /* ── 其他 ───────────────────────────────────────────── */
+  /* ── 几何 ───────────────────────────────────────────── */
 
   // 解析几何：圆锥曲线。椭圆 + 两条准线
   conic: {
@@ -206,6 +233,26 @@ export const FIGURES: Record<string, Figure> = {
     `,
   },
 
+  // 微分几何：球面上的点与它的法向量。
+  // 早先画的是「曲面网格 + 法线 + 两条主曲率方向」，三条线挤在一点、
+  // 再加密集等参线，在 92px 的卡片里糊成一团。改成球面 + 一根法线，
+  // 概念更单一（法向量是谈曲率、谈曲面第一/第二基本形的入口），
+  // 图形也立得住。
+  surface: {
+    label: '球面上的点与它的法向量',
+    body: `
+      <circle cx="60" cy="68" r="30" ${S} />
+      <ellipse cx="60" cy="68" rx="30" ry="10" ${S_THIN} opacity="0.55" />
+      <path d="M60 38 C47 51 47 85 60 98" ${S_THIN} opacity="0.4" />
+      <path d="M60 38 C73 51 73 85 60 98" ${S_THIN} opacity="0.4" />
+      <line x1="60" y1="38" x2="60" y2="18" stroke="url(#bm-fig-line)"
+        stroke-width="2.2" stroke-linecap="round" />
+      <path d="M56.5 24 L60 18 L63.5 24" fill="none" stroke="#12386e"
+        stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" />
+      <circle cx="60" cy="38" r="3.2" fill="#12386e" />
+    `,
+  },
+
   // 高中数学：抛物线（以顶点为原点，对称轴竖直）
   parabola: {
     label: '抛物线与它的对称轴',
@@ -228,6 +275,47 @@ export const FIGURES: Record<string, Figure> = {
       <line x1="16" y1="60" x2="104" y2="60" ${S_THIN} stroke-dasharray="2 5" opacity="0.45" />
       <circle cx="48" cy="60" r="2.6" fill="#12386e" />
       <circle cx="80" cy="60" r="2.6" fill="#12386e" />
+    `,
+  },
+
+  /* ── 其他 ───────────────────────────────────────────── */
+
+  // 数值分析：用折线逼近光滑曲线。
+  // 节点不能太密 —— 密到与曲线贴合时两条线完全重合，
+  // 「用折线逼近」这层意思就看不出来了。
+  numerical: {
+    label: '用折线逼近光滑曲线，圆圈是采样节点',
+    body: `
+      <line x1="16" y1="92" x2="104" y2="92" ${S_THIN} opacity="0.45" />
+      <line x1="16" y1="92" x2="16" y2="22" ${S_THIN} opacity="0.45" />
+      <path d="M18 86 C34 80 46 50 62 38 C78 26 94 24 102 23" ${S} opacity="0.5" />
+      <polyline points="18,86 44,74 66,44 88,28 102,23"
+        stroke="url(#bm-fig-line)" stroke-width="1.8" fill="none"
+        stroke-linejoin="round" stroke-linecap="round" />
+      <circle cx="18" cy="86" r="3.4" fill="#fff" stroke="#12386e" stroke-width="1.6" />
+      <circle cx="44" cy="74" r="3.4" fill="#fff" stroke="#12386e" stroke-width="1.6" />
+      <circle cx="66" cy="44" r="3.4" fill="#fff" stroke="#12386e" stroke-width="1.6" />
+      <circle cx="88" cy="28" r="3.4" fill="#fff" stroke="#12386e" stroke-width="1.6" />
+      <circle cx="102" cy="23" r="3.4" fill="#fff" stroke="#12386e" stroke-width="1.6" />
+    `,
+  },
+
+  // 离散数学：一张带环的图。节点 + 边，比坐标几何更能代表「离散」
+  graph: {
+    label: '顶点与边构成的图',
+    body: `
+      <line x1="40" y1="32" x2="82" y2="44" ${S_THIN} opacity="0.8" />
+      <line x1="82" y1="44" x2="88" y2="82" ${S_THIN} opacity="0.8" />
+      <line x1="88" y1="82" x2="46" y2="90" ${S_THIN} opacity="0.8" />
+      <line x1="46" y1="90" x2="26" y2="58" ${S_THIN} opacity="0.8" />
+      <line x1="26" y1="58" x2="40" y2="32" ${S} opacity="0.85" />
+      <line x1="40" y1="32" x2="88" y2="82" ${S_THIN} opacity="0.5" stroke-dasharray="3 4" />
+      <line x1="26" y1="58" x2="82" y2="44" ${S_THIN} opacity="0.5" stroke-dasharray="3 4" />
+      <circle cx="40" cy="32" r="4.4" fill="#fff" stroke="url(#bm-fig-line)" stroke-width="1.8" />
+      <circle cx="82" cy="44" r="4.4" fill="#fff" stroke="url(#bm-fig-line)" stroke-width="1.8" />
+      <circle cx="88" cy="82" r="4.4" fill="#fff" stroke="url(#bm-fig-line)" stroke-width="1.8" />
+      <circle cx="46" cy="90" r="4.4" fill="#fff" stroke="url(#bm-fig-line)" stroke-width="1.8" />
+      <circle cx="26" cy="58" r="4.4" fill="#fff" stroke="url(#bm-fig-line)" stroke-width="1.8" />
     `,
   },
 };

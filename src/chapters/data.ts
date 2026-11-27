@@ -1,7 +1,7 @@
 /**
  * 章节数据
  *
- * 十三个章节，分「代数 / 分析 / 其他」三大类。
+ * 十七个章节，分「代数 / 分析 / 几何 / 其他」四大类。
  * 每个章节只写题目、一句话描述和代表图形的名字 —— 图形本体是
  * 内联 SVG（见 figures.ts），不在这里塞巨型 path 字符串。
  *
@@ -10,7 +10,7 @@
  */
 
 /** 大分类 */
-export type ChapterCategory = 'algebra' | 'analysis' | 'other';
+export type ChapterCategory = 'algebra' | 'analysis' | 'geometry' | 'other';
 
 export interface Chapter {
   /** 稳定的 id，用于路由与 DOM 标识 */
@@ -46,15 +46,9 @@ export const CATEGORIES: readonly Category[] = [
       },
       {
         id: 'abstract-algebra',
-        title: '近世代数',
+        title: '抽象代数',
         description: '群、环、域与它们的运算是怎么来的',
         figure: 'group',
-      },
-      {
-        id: 'operator-algebra',
-        title: '算子代数',
-        description: '巴拿赫空间上的代数与谱',
-        figure: 'spectrum',
       },
     ],
   },
@@ -88,6 +82,18 @@ export const CATEGORIES: readonly Category[] = [
         figure: 'hilbert',
       },
       {
+        id: 'ode',
+        title: '常微分方程',
+        description: '方向场、积分曲线与初值问题',
+        figure: 'ode',
+      },
+      {
+        id: 'pde',
+        title: '偏微分方程',
+        description: '热传导、波动与拉普拉斯方程',
+        figure: 'pde',
+      },
+      {
         id: 'probability',
         title: '概率论',
         description: '随机变量与它的分布',
@@ -102,9 +108,9 @@ export const CATEGORIES: readonly Category[] = [
     ],
   },
   {
-    id: 'other',
-    name: '其他',
-    latin: 'Others',
+    id: 'geometry',
+    name: '几何',
+    latin: 'Geometry',
     chapters: [
       {
         id: 'analytic-geometry',
@@ -117,6 +123,31 @@ export const CATEGORIES: readonly Category[] = [
         title: '高等几何',
         description: '射影、变换与不变量',
         figure: 'projective',
+      },
+      {
+        id: 'differential-geometry',
+        title: '微分几何',
+        description: '曲线、曲面与它们的曲率',
+        figure: 'surface',
+      },
+    ],
+  },
+  {
+    id: 'other',
+    name: '其他',
+    latin: 'Others',
+    chapters: [
+      {
+        id: 'numerical-analysis',
+        title: '数值分析',
+        description: '用有限的步骤逼近精确解',
+        figure: 'numerical',
+      },
+      {
+        id: 'discrete-math',
+        title: '离散数学',
+        description: '图、组合与计数',
+        figure: 'graph',
       },
       {
         id: 'highschool-math',
