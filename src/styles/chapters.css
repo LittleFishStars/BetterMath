@@ -48,12 +48,14 @@
   backdrop-filter: blur(12px) saturate(180%) brightness(1.06);
   -webkit-backdrop-filter: blur(12px) saturate(180%) brightness(1.06);
 
-  /* 玻璃本体：上方更亮、下方更透 */
+  /* 玻璃本体：上方更亮、下方更透。
+     整体比卡片更透一档 —— header 是压在内容之上的浮层，
+     太实会像一条白条，透出下面的符号才有「玻璃」的感觉。 */
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.62) 0%,
-    rgba(255, 255, 255, 0.34) 62%,
-    rgba(255, 255, 255, 0.42) 100%
+    rgba(255, 255, 255, 0.34) 0%,
+    rgba(255, 255, 255, 0.1) 62%,
+    rgba(255, 255, 255, 0.18) 100%
   );
 
   /* 三道高光叠出「厚度」：
@@ -67,7 +69,7 @@
     0 10px 30px -12px rgba(18, 56, 110, 0.18);
 
   /* 下边界的一道渐变细线：纯色边框会显得生硬 */
-  border-bottom: 1px solid rgba(255, 255, 255, 0.7);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.45);
 }
 
 /* 液态感：一层缓慢横扫的镜面反光。
@@ -193,8 +195,8 @@
 .chapter-head.is-scrolled .chapter-head__glass {
   background: linear-gradient(
     180deg,
-    rgba(255, 255, 255, 0.78) 0%,
-    rgba(255, 255, 255, 0.52) 100%
+    rgba(255, 255, 255, 0.5) 0%,
+    rgba(255, 255, 255, 0.26) 100%
   );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.95),
@@ -256,10 +258,21 @@
 
 .chapter-grid {
   display: grid;
-  /* 最小 260px：再窄的话「题目 + 描述 + 图形」会挤成两行。
-     用 auto-fit 而不是 auto-fill：某一行卡片少（比如代数只有 3 张）时，
-     空轨道会被折叠、卡片拉宽填满整行，不会在右边留一大块缺口。 */
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  /* 所有行等高：描述有一行的也有两行的，不锁行高卡片会参差不齐 */
+  grid-auto-rows: 1fr;
+
+  /* 卡片用**固定宽度**而不是 1fr 拉伸。
+     用 1fr 的话，卡片数少的分区（代数 3 张）会被拉宽、多的分区（分析 4 张）
+     变窄，同屏里出现两种卡宽 —— 所以这里的列宽写死。
+     min(288px, 100%) 让极窄屏自动降到整行宽，不必另写媒体查询。
+     288px 是「标题 + 一句话描述 + 右下 92px 图形」排得开的最小宽度。 */
+  grid-template-columns: repeat(auto-fill, min(288px, 100%));
+
+  /* 左对齐而不是居中：居中会让「分析」的第二行（只有 2 张）相对第一行
+     缩进一段，行与行的左边缘对不齐，比右侧留白更难看。
+     左对齐时所有行从同一条竖线起步，留白统一落在右边。 */
+  justify-content: start;
+
   gap: clamp(0.85rem, 1.6vw, 1.25rem);
 }
 
@@ -274,7 +287,8 @@
 
   position: relative;
   display: block;
-  min-height: 146px;
+  /* 高度交给网格行统一分配，卡片自己不再定 min-height */
+  height: 100%;
   border-radius: 18px;
   overflow: hidden;
   isolation: isolate;
@@ -417,7 +431,8 @@
   align-items: end;
   gap: 0.75rem;
   height: 100%;
-  min-height: 146px;
+  /* 兜一个下限：万一某行只有一张很短的卡，也不至于被压扁 */
+  min-height: 138px;
   padding: 1rem 1rem 0.9rem 1.1rem;
 }
 
@@ -535,12 +550,11 @@
 
   /* 窄屏是单列，卡片很宽，高度压低一些才不显得空 */
   .card {
-    min-height: 118px;
     border-radius: 16px;
   }
 
   .card__content {
-    min-height: 118px;
+    min-height: 112px;
     padding: 0.9rem 0.9rem 0.8rem 1rem;
   }
 }
