@@ -245,13 +245,29 @@ function bindGlareOnly(el: HTMLElement): void {
 }
 
 /** 渲染一行内容卡片 */
-function createContentRow(item: ContentItem): HTMLElement {
+function createContentRow(
+  item: ContentItem,
+  onOpen: (item: ContentItem) => void,
+): HTMLElement {
   const row = document.createElement('article');
   row.className = 'row';
   row.dataset.content = item.id;
-  // 内容条目暂时没有内页，先做成可聚焦的静态块而不是链接
   row.tabIndex = 0;
   row.setAttribute('aria-label', `${item.title}：${item.description}`);
+
+  // 带 visual 的条目可以点进去看交互演示；其余暂时只是静态说明
+  if (item.visual) {
+    row.classList.add('is-openable');
+    row.setAttribute('role', 'link');
+    const open = (): void => onOpen(item);
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        open();
+      }
+    });
+  }
 
   row.innerHTML = `
     <div class="row__glare" aria-hidden="true"></div>
@@ -276,6 +292,7 @@ export function renderChapterDetail(
   chapter: Chapter,
   items: readonly ContentItem[],
   onBack: () => void,
+  onOpenItem: (item: ContentItem) => void = () => undefined,
 ): void {
   container.replaceChildren();
 
@@ -303,7 +320,7 @@ export function renderChapterDetail(
 
   const list = document.createElement('div');
   list.className = 'row-list';
-  for (const item of items) list.append(createContentRow(item));
+  for (const item of items) list.append(createContentRow(item, onOpenItem));
 
   // 一条内容都没有时说清楚，别留个空页面
   if (items.length === 0) {

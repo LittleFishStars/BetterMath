@@ -16,6 +16,7 @@ const bootShownAt = performance.now();
 import { Router, type Route } from './chapters/router';
 import { bindHeadScroll, renderChapterDetail, renderChapters } from './chapters/render';
 import { CHAPTER_CONTENTS, findChapter } from './chapters/data';
+import { RiemannView } from './chapters/riemann/view';
 import {
   enterChapters,
   leaveChapters,
@@ -88,6 +89,7 @@ function bootstrap(): void {
     chaptersBody: must('#chapters-body'),
   };
   const detailBox = must('#chapter-detail');
+  const vizBox = must('#viz-view');
   const headNav = must('#chapter-nav');
 
   // ── 路由 ──
@@ -150,9 +152,17 @@ function bootstrap(): void {
     const chapter = findChapter(chapterId);
     if (!chapter) return false;
 
-    renderChapterDetail(detailBox, chapter, CHAPTER_CONTENTS[chapterId] ?? [], () => {
-      router.navigate({ view: 'chapters' });
-    });
+    renderChapterDetail(
+      detailBox,
+      chapter,
+      CHAPTER_CONTENTS[chapterId] ?? [],
+      () => router.navigate({ view: 'chapters' }),
+      (item) => {
+        if (item.visual) {
+          router.navigate({ view: 'viz', chapterId, contentId: item.id });
+        }
+      },
+    );
 
     // header 的分类锚点在内容页没有意义，淡出（首屏时无过渡）
     headNav.classList.add('is-gone');
@@ -162,31 +172,83 @@ function bootstrap(): void {
     return true;
   };
 
+  // ── 可视化页 ──
+  // 目前只有一个组件，键名对应 ContentItem.visual
+  let currentViz: { destroy(): void } | null = null;
+
+  const disposeViz = (): void => {
+    currentViz?.destroy();
+    currentViz = null;
+    vizBox.replaceChildren();
+  };
+
+  /** 渲染并摆好可视化页（不做动画） */
+  const prepareViz = (chapterId: string, contentId: string): boolean => {
+    const chapter = findChapter(chapterId);
+    const items = CHAPTER_CONTENTS[chapterId] ?? [];
+    const item = items.find((entry) => entry.id === contentId);
+    if (!chapter || !item || !item.visual) return false;
+
+    disposeViz();
+
+    if (item.visual === 'riemann') {
+      const view = new RiemannView({
+        // 返回上一层：内容页
+        onBack: () => router.navigate({ view: 'chapter', chapterId }),
+      });
+      vizBox.replaceChildren(view.root);
+      currentViz = view;
+    } else {
+      return false;
+    }
+
+    headNav.classList.add('is-gone');
+    refs.chaptersBody.hidden = true;
+    detailBox.hidden = true;
+    vizBox.hidden = false;
+    return true;
+  };
+
   /** 带动画地切到列表 / 内容页 */
+  /** 路由 → 它对应的主体容器 */
+  const bodyOf = (route: Route): HTMLElement => {
+    if (route.view === 'chapter') return detailBox;
+    if (route.view === 'viz') return vizBox;
+    return refs.chaptersBody;
+  };
+
   const switchBody = async (next: Route): Promise<void> => {
-    const toDetail = next.view === 'chapter';
-    const from = toDetail ? refs.chaptersBody : detailBox;
-    const to = toDetail ? detailBox : refs.chaptersBody;
+    const to = bodyOf(next);
+    // 当前可见的那个（三个主体同时只有一个没 hidden）
+    const from = [refs.chaptersBody, detailBox, vizBox].find((el) => !el.hidden);
 
     // 1) 旧主体先退场。
     //    必须排在「摆好新主体」之前：showList/prepareDetail 会直接写 hidden，
     //    一旦先隐藏，leaveBody 里的 el.hidden 判断就会短路，动画整个跳过。
-    await leaveBody(from);
+    if (from && from !== to) await leaveBody(from);
 
     // 2) 摆好新主体
-    if (toDetail && !prepareDetail(next.chapterId)) {
+    let prepared = true;
+    if (next.view === 'viz') {
+      prepared = prepareViz(next.chapterId, next.contentId);
+    } else if (next.view === 'chapter') {
+      prepared = prepareDetail(next.chapterId);
+    } else {
+      showList();
+    }
+
+    if (!prepared) {
       // 未知 id：退回列表。这里不能靠 router.navigate 转场 ——
       // applyRoute 的 busy 锁会把紧接着的那次 emit 丢掉，所以手动摆好视图，
-      // 只让 router 把地址栏改回 /chapters（history: false，不新增记录）。
+      // 只让 router 把地址栏改回去（history: false，不新增记录）。
       showList();
       router.navigate({ view: 'chapters' }, { history: false });
       enterBody(refs.chaptersBody);
       return;
     }
-    if (!toDetail) showList();
 
     // 3) 新主体进场
-    if (toDetail) {
+    if (next.view !== 'chapters') {
       window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
     }
     enterBody(to);
@@ -215,14 +277,22 @@ function bootstrap(): void {
       // 等落位之后再切，布局变化就和动画错开了。
       if (next.view !== 'home') {
         // 从主页过来：主体静态就位，进场交给 enterChapters（含 header 滑下）
-        if (next.view === 'chapter') {
-          if (!prepareDetail(next.chapterId)) return;
-          await enterChapters(refs);
-          enterBody(detailBox);
-        } else {
+        let prepared = true;
+        if (next.view === 'viz') prepared = prepareViz(next.chapterId, next.contentId);
+        else if (next.view === 'chapter') prepared = prepareDetail(next.chapterId);
+        else showList();
+
+        if (!prepared) {
+          // 未知 id：落到章节列表，别把人留在空白页
           showList();
+          router.navigate({ view: 'chapters' }, { history: false });
           await enterChapters(refs);
+          document.body.dataset.route = 'chapters';
+          return;
         }
+
+        await enterChapters(refs);
+        enterBody(bodyOf(next));
         document.body.dataset.route = 'chapters';
       } else {
         // 从内容页回主页时，显示着的是 detailBox 而不是章节列表。
@@ -243,7 +313,10 @@ function bootstrap(): void {
   if (initial.view !== 'home') {
     document.body.dataset.route = 'chapters';
     showChaptersImmediately(refs);
-    if (initial.view === 'chapter') {
+    if (initial.view === 'viz') {
+      if (prepareViz(initial.chapterId, initial.contentId)) vizBox.classList.add('is-revealed');
+      else showList();
+    } else if (initial.view === 'chapter') {
       if (prepareDetail(initial.chapterId)) detailBox.classList.add('is-revealed');
       else showList();
     } else {
@@ -273,8 +346,13 @@ function bootstrap(): void {
   window.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
     const current = router.route;
-    if (current.view === 'chapter') router.navigate({ view: 'chapters' });
-    else if (current.view === 'chapters') router.navigate({ view: 'home' });
+    if (current.view === 'viz') {
+      router.navigate({ view: 'chapter', chapterId: current.chapterId });
+    } else if (current.view === 'chapter') {
+      router.navigate({ view: 'chapters' });
+    } else if (current.view === 'chapters') {
+      router.navigate({ view: 'home' });
+    }
   });
 
   // header 高度随断点变化（桌面 76px / 窄屏 64px），
@@ -293,7 +371,10 @@ function bootstrap(): void {
   );
 
   // 页面卸载时停掉 rAF 与监听，避免与 bfcache 里的旧页面一起燃烧
-  window.addEventListener('pagehide', () => field?.destroy(), { once: true });
+  window.addEventListener('pagehide', () => {
+    field?.destroy();
+    currentViz?.destroy();
+  }, { once: true });
 
   // 一切就绪，收掉加载页
   void dismissBoot();

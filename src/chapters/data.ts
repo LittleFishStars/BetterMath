@@ -189,10 +189,15 @@ export function findChapter(id: string): Chapter | undefined {
  * 描述要短（一行放得下），长了会挤压标题。
  */
 export interface ContentItem {
-  /** 稳定的 id，用于 DOM 标识与将来的小节锚点 */
+  /** 稳定的 id，用于 DOM 标识与路由 */
   id: string;
   title: string;
   description: string;
+  /**
+   * 可视化组件的键。有值时这一行可以点进去看交互演示，
+   * 键对应 main.ts 里的可视化注册表。
+   */
+  visual?: string;
 }
 
 /**
@@ -209,6 +214,7 @@ export const CHAPTER_CONTENTS: Readonly<Record<string, readonly ContentItem[]>> 
       id: 'riemann-integral',
       title: '定积分与黎曼和',
       description: '用矩形分割逼近曲边梯形的面积',
+      visual: 'riemann',
     },
   ],
 };

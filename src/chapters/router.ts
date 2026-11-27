@@ -2,9 +2,10 @@
  * 极简路由
  *
  * 三条路径：
- *   /                       主页
- *   /chapters               章节列表
- *   /chapters/<chapterId>   章节内容页
+ *   /                              主页
+ *   /chapters                      章节列表
+ *   /chapters/<chapterId>          章节内容页
+ *   /chapters/<chapterId>/<slug>   内容条目的可视化页
  *
  * 用 History API 而不是真正的多页：视图切换要有转场，一旦换成整页跳转，
  * 转场就断了；而且共用一份 canvas 背景场，整页加载会让它重新开始。
@@ -16,13 +17,18 @@
 export type Route =
   | { view: 'home' }
   | { view: 'chapters' }
-  | { view: 'chapter'; chapterId: string };
+  | { view: 'chapter'; chapterId: string }
+  | { view: 'viz'; chapterId: string; contentId: string };
 
 /** 路径 → 路由。未知路径一律回主页 */
 function parse(pathname: string): Route {
   const clean = pathname.replace(/\/+$/, '') || '/';
   if (clean === '/') return { view: 'home' };
   if (clean === '/chapters') return { view: 'chapters' };
+
+  // 三级要放在二级之前判断，否则 /chapters/a/b 会先被二级规则拒掉
+  const viz = /^\/chapters\/([a-z0-9-]+)\/([a-z0-9-]+)$/.exec(clean);
+  if (viz) return { view: 'viz', chapterId: viz[1], contentId: viz[2] };
 
   const match = /^\/chapters\/([a-z0-9-]+)$/.exec(clean);
   if (match) return { view: 'chapter', chapterId: match[1] };
@@ -37,6 +43,8 @@ function toPath(route: Route): string {
       return '/chapters';
     case 'chapter':
       return `/chapters/${route.chapterId}`;
+    case 'viz':
+      return `/chapters/${route.chapterId}/${route.contentId}`;
     default:
       return '/';
   }
@@ -51,6 +59,9 @@ function toPath(route: Route): string {
 function sameRoute(a: Route, b: Route): boolean {
   if (a.view !== b.view) return false;
   if (a.view === 'chapter' && b.view === 'chapter') return a.chapterId === b.chapterId;
+  if (a.view === 'viz' && b.view === 'viz') {
+    return a.chapterId === b.chapterId && a.contentId === b.contentId;
+  }
   return true;
 }
 

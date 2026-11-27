@@ -826,6 +826,16 @@
   white-space: nowrap;
 }
 
+/* 能点进去看可视化的行：指针变手型，标题在悬停时提亮 */
+.row.is-openable {
+  cursor: pointer;
+}
+
+.row.is-openable:hover .row__title,
+.row.is-openable:focus-visible .row__title {
+  color: var(--bm-accent);
+}
+
 .row__desc {
   flex-shrink: 0;
   /* 55% 在窄屏上刚好差几个字放不下（实测「…曲边梯形的面积」会被截掉末尾）。
@@ -840,6 +850,410 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ══ 可视化页（定积分与黎曼和）═══════════════════════════
+   与内容页并列的第三个主体，共用 header。
+   整页高度吃满视口：图在中间撑开，进度条永远贴在底部。 */
+
+.viz {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2.4vh, 1.8rem);
+
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: clamp(1.2rem, 3vh, 2.2rem) clamp(1.1rem, 4vw, 3rem) clamp(1.4rem, 3vh, 2rem);
+
+  /* 减去 header 高度，让进度条正好落在首屏底部 */
+  min-height: calc(100dvh - var(--bm-head-h, 76px));
+}
+
+/* 显隐由外层容器负责，和章节列表 / 内容页共用同一套进出动画。
+   写在 .viz 上的话，JS 那边是给 #viz-view 加 class，两边对不上，
+   结果就是整页空白（踩过一次）。 */
+.viz-host {
+  opacity: 0;
+  transform: translateY(14px);
+  transition:
+    opacity 300ms ease,
+    transform 300ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.viz-host[hidden] {
+  display: none;
+}
+
+.viz-host.is-revealed {
+  opacity: 1;
+  transform: none;
+}
+
+.viz__head {
+  flex: none;
+}
+
+.viz__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  padding: 0;
+  border: 0;
+  background: none;
+
+  font: inherit;
+  font-size: 0.79rem;
+  letter-spacing: 0.02em;
+  color: var(--bm-text-muted);
+  cursor: pointer;
+  transition: color 200ms ease;
+}
+
+.viz__back:hover,
+.viz__back:focus-visible {
+  color: var(--bm-accent);
+}
+
+/* ── 舞台：图 + 面板 ── */
+.viz__stage {
+  flex: 1;
+  display: grid;
+  /* 图占大头。关键帧 0 时右侧面板是空的，图不够大就会显得整屏发虚 */
+  grid-template-columns: minmax(0, 2.15fr) minmax(238px, 0.7fr);
+  gap: clamp(1.2rem, 3vw, 2.2rem);
+  align-items: center;
+  min-height: 0;
+}
+
+.viz__figure {
+  min-width: 0;
+}
+
+.viz__plot {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* ── 坐标轴与刻度 ── */
+.viz__axis {
+  stroke: rgba(27, 39, 57, 0.3);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+}
+
+.viz__tick {
+  stroke: rgba(27, 39, 57, 0.22);
+  stroke-width: 1;
+}
+
+.viz__tick-label,
+.viz__axis-label {
+  font-size: 13px;
+  fill: var(--bm-text-muted);
+}
+
+.viz__axis-label {
+  font-size: 14px;
+  fill: var(--bm-text);
+  font-style: italic;
+}
+
+/* ── 面积与曲线 ── */
+.viz__area {
+  fill: rgba(28, 111, 196, 0.12);
+}
+
+.viz__curve {
+  fill: none;
+  stroke: url(#bm-fig-line);
+  stroke-width: 2.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.viz__curve-dot {
+  fill: #12386e;
+}
+
+.viz__curve-label {
+  font-size: 15px;
+  font-style: italic;
+  fill: var(--bm-text-strong);
+  letter-spacing: 0.02em;
+}
+
+/* ── 黎曼矩形 ──
+   下和用实心（低于曲线），上和用极淡填充 + 细描边（高于曲线）。
+   两者叠在一起时，中间那条「夹住曲线」的缝就是上下的差。 */
+.viz__rect--lower {
+  fill: rgba(28, 111, 196, 0.24);
+}
+
+.viz__rect--upper {
+  fill: rgba(28, 111, 196, 0.06);
+  stroke: rgba(28, 111, 196, 0.34);
+  stroke-width: 0.7;
+}
+
+.viz__divider {
+  stroke: rgba(18, 56, 110, 0.4);
+  stroke-width: 1;
+}
+
+.viz__divider-label {
+  font-size: 12px;
+  fill: var(--bm-text-muted);
+}
+
+/* ── 右侧面板 ── */
+.viz__panel {
+  position: relative;
+  min-height: 220px;
+}
+
+.viz__panel-a,
+.viz__panel-b {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.9rem;
+  transition: opacity 60ms linear;
+}
+
+.viz__panel-b {
+  justify-content: flex-start;
+  padding-top: 0.4rem;
+}
+
+.viz__n-label {
+  font-size: 0.76rem;
+  letter-spacing: 0.06em;
+  color: var(--bm-text-muted);
+}
+
+.viz__n-row {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.viz__n-value {
+  min-width: 2.6em;
+  font-size: 1.05rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--bm-text-strong);
+}
+
+/* ── 三个面积值 ── */
+.viz__sums {
+  display: grid;
+  gap: 0.42rem;
+  margin: 0.2rem 0 0;
+}
+
+.viz__sum {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.42rem 0.7rem;
+  border-radius: 10px;
+  background: rgba(28, 111, 196, 0.05);
+  transition: background-color 300ms ease;
+}
+
+.viz__sum dt {
+  font-size: 0.76rem;
+  letter-spacing: 0.04em;
+  color: var(--bm-text-muted);
+}
+
+.viz__sum dd {
+  margin: 0;
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  color: var(--bm-text);
+}
+
+/* 收敛时精确值那一栏提亮，作为「三者合流」的视觉落点 */
+.viz__sum--exact {
+  background: rgba(28, 111, 196, 0.09);
+}
+
+.viz__sum--exact.is-converged {
+  background: rgba(28, 111, 196, 0.16);
+}
+
+.viz__sum--exact.is-converged dd {
+  color: var(--bm-accent);
+}
+
+/* ── 说明文字 ── */
+.viz__explain-title {
+  margin: 0 0 0.55rem;
+  font-size: 1.02rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--bm-text-strong);
+}
+
+.viz__explain-body {
+  margin: 0;
+  font-size: 0.86rem;
+  line-height: 1.85;
+  letter-spacing: 0.01em;
+  color: var(--bm-text);
+}
+
+.viz__formula {
+  display: inline-block;
+  padding: 0.08em 0.42em;
+  border-radius: 6px;
+  background: rgba(28, 111, 196, 0.08);
+  font-variant-numeric: tabular-nums;
+  color: var(--bm-accent);
+}
+
+/* ── 进度条 ── */
+.viz__timeline {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: clamp(0.7rem, 1.6vw, 1.1rem);
+  padding: 0.55rem 0 0.2rem;
+}
+
+.viz__play {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(28, 111, 196, 0.1);
+  cursor: pointer;
+  transition: background-color 200ms ease, transform 200ms ease;
+}
+
+.viz__play:hover,
+.viz__play:focus-visible {
+  background: rgba(28, 111, 196, 0.18);
+}
+
+.viz__play:active {
+  transform: scale(0.94);
+}
+
+/* 播放三角 / 暂停双竖线，用 CSS 画，不引图标库 */
+.viz__play-icon {
+  width: 0;
+  height: 0;
+  margin-left: 3px;
+  border-style: solid;
+  border-width: 6px 0 6px 10px;
+  border-color: transparent transparent transparent var(--bm-accent);
+}
+
+.viz__play.is-playing .viz__play-icon {
+  width: 10px;
+  height: 12px;
+  margin-left: 0;
+  border: 0;
+  background:
+    linear-gradient(var(--bm-accent), var(--bm-accent)) 0 0 / 3.5px 100% no-repeat,
+    linear-gradient(var(--bm-accent), var(--bm-accent)) 100% 0 / 3.5px 100% no-repeat;
+}
+
+.viz__scrub-wrap {
+  position: relative;
+  flex: 1;
+  /* 给上方的关键帧标记留出高度，否则它们会和滑块的圆点叠在一起 */
+  padding-top: 24px;
+}
+
+/* ── 关键帧标记 ── */
+.viz__marks {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 20px;
+}
+
+.viz__mark {
+  position: absolute;
+  top: 0;
+  width: 11px;
+  height: 11px;
+  padding: 0;
+  transform: translateX(-50%);
+  border: 1.5px solid rgba(28, 111, 196, 0.35);
+  border-radius: 50%;
+  background: #fff;
+  cursor: pointer;
+  transition: border-color 200ms ease, background-color 200ms ease, transform 200ms ease;
+}
+
+.viz__mark:hover,
+.viz__mark:focus-visible {
+  border-color: var(--bm-accent);
+  transform: translateX(-50%) scale(1.18);
+}
+
+.viz__mark.is-active {
+  border-color: var(--bm-accent);
+  background: var(--bm-accent);
+}
+
+/* ── 自定义 range ── */
+.viz__scrub,
+.viz__n-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 4px;
+  margin: 0;
+  border-radius: 999px;
+  background: rgba(28, 111, 196, 0.16);
+  cursor: pointer;
+  outline: none;
+}
+
+.viz__scrub::-webkit-slider-thumb,
+.viz__n-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bm-accent);
+  box-shadow: 0 1px 4px rgba(18, 56, 110, 0.35);
+  cursor: pointer;
+}
+
+.viz__scrub::-moz-range-thumb,
+.viz__n-range::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--bm-accent);
+  box-shadow: 0 1px 4px rgba(18, 56, 110, 0.35);
+  cursor: pointer;
+}
+
+.viz__scrub:focus-visible,
+.viz__n-range:focus-visible {
+  box-shadow: 0 0 0 3px rgba(28, 111, 196, 0.2);
 }
 
 /* ── 窄屏微调 ─────────────────────────────────────────── */
@@ -891,11 +1305,39 @@
     bottom: 0.8rem;
     font-size: 0.68rem;
   }
+
+  /* 可视化页：图在上、面板在下。
+     竖屏里并排两栏会把图压得太小，矩形根本数不清。 */
+  .viz__stage {
+    grid-template-columns: minmax(0, 1fr);
+    align-content: start;
+  }
+
+  /* 面板 A 的内容（滑动条 + 三个面积值）实测算下来约 200px，
+     留 170 会让它溢出到进度条上，这里按实际内容给足 */
+  .viz__panel {
+    min-height: 212px;
+  }
+
+  .viz__panel-a {
+    gap: 0.7rem;
+  }
+
+  .viz__explain-body {
+    font-size: 0.82rem;
+    line-height: 1.75;
+  }
 }
 
 /* ── 减少动态效果 ─────────────────────────────────────── */
 
 @media (prefers-reduced-motion: reduce) {
+  /* 可视化页的插值动画由 JS 按进度驱动，本来就「想停哪停哪」，
+     这里只需要把进场位移去掉 */
+  .viz-host {
+    transform: none;
+  }
+
   .chapter-head__glass::after {
     animation: none;
     opacity: 0;
