@@ -22,8 +22,8 @@ body {
   margin: 0;
   min-height: 100dvh;
   font-family: var(--bm-font-sans);
-  color: var(--bm-text);
-  background-color: var(--bm-canvas);
+  color: var(--bm-fg-default);
+  background-color: var(--bm-bg-canvas);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -84,7 +84,7 @@ body[data-route='home'] {
     ),
     radial-gradient(
       circle at 50% 100%,
-      rgba(28, 111, 196, 0.1) 0%,
+      var(--bm-brand-a10) 0%,
       rgba(28, 111, 196, 0) 55%
     );
   pointer-events: none;
@@ -127,7 +127,7 @@ body[data-route='home'] {
 /* 渐变裁剪在部分浏览器里会丢掉文字阴影，用 filter 补一层极淡的光晕，
    让花体在浅底上更立得住 */
 .hero__title {
-  filter: drop-shadow(0 0.04em 0.09em rgba(28, 111, 196, 0.18));
+  filter: drop-shadow(0 0.04em 0.09em var(--bm-brand-a18));
 }
 
 /* ── 「数学可视化 → 开始探索」按钮 ─────────────────────
@@ -172,7 +172,7 @@ body[data-route='home'] {
   letter-spacing: 0.34em;
   /* 字距把最后一个字后面也撑开了，补一份同样的缩进让整体回正 */
   text-indent: 0.34em;
-  color: var(--bm-text-muted);
+  color: var(--bm-fg-muted);
   cursor: pointer;
   /* 遮罩会裁掉超出文字框的部分，这里不需要额外的溢出处理 */
   transition: --reveal 560ms var(--bm-ease-out);
@@ -213,9 +213,9 @@ body[data-route='home'] {
   letter-spacing: inherit;
   text-indent: inherit;
   text-shadow:
-    0 0 0.35em rgba(28, 111, 196, 0.55),
+    0 0 0.35em var(--bm-brand-a55),
     0 0 1.1em rgba(28, 111, 196, 0.35),
-    0 0 2.2em rgba(28, 111, 196, 0.18);
+    0 0 2.2em var(--bm-brand-a18);
   /* 呼吸：4 秒一轮，明暗各占一半，缓入缓出像真的在「呼吸」 */
   animation: bm-cta-breathe 4s ease-in-out infinite;
 }
@@ -231,7 +231,7 @@ body[data-route='home'] {
 
 /* 圆内可见：与上面正好互补，交界处只有 1px 的重叠用来压掉锯齿 */
 .hero__cta__hover {
-  color: var(--bm-text-strong);
+  color: var(--bm-fg-strong);
   mask-image: radial-gradient(
     circle at 50% 100%,
     #000 var(--reveal),
@@ -258,7 +258,7 @@ body[data-route='home'] {
 /* 键盘聚焦也要能看见同样的反馈，否则这个按钮对键盘用户等于没有状态 */
 .hero__cta:focus-visible {
   --reveal: 105%;
-  outline: 2px solid rgba(28, 111, 196, 0.55);
+  outline: 2px solid var(--bm-brand-a55);
   outline-offset: 0.35em;
   border-radius: 0.35em;
 }
@@ -294,7 +294,7 @@ body[data-route='home'] {
   padding-bottom: clamp(1.1rem, 3.5vh, 2.4rem);
   font-size: 0.78rem;
   letter-spacing: 0.16em;
-  color: var(--bm-text-muted);
+  color: var(--bm-fg-muted);
   animation: bm-fade-up var(--bm-duration-enter) var(--bm-ease-out) 0.36s both;
 }
 
@@ -304,7 +304,7 @@ body[data-route='home'] {
   background: linear-gradient(
     90deg,
     transparent,
-    rgba(28, 111, 196, 0.3),
+    var(--bm-brand-a30),
     transparent
   );
 }
@@ -361,14 +361,14 @@ body[data-route='home'] {
     text-shadow:
       0 0 0.3em rgba(28, 111, 196, 0.45),
       0 0 0.95em rgba(28, 111, 196, 0.26),
-      0 0 1.9em rgba(28, 111, 196, 0.12);
+      0 0 1.9em var(--bm-brand-a12);
   }
   50% {
     opacity: 1;
     text-shadow:
       0 0 0.45em rgba(28, 111, 196, 0.72),
       0 0 1.35em rgba(28, 111, 196, 0.46),
-      0 0 2.7em rgba(28, 111, 196, 0.24);
+      0 0 2.7em var(--bm-brand-a24);
   }
 }
 

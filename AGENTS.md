@@ -267,34 +267,59 @@ export const CHAPTER_CONTENTS = {
 
 **这是硬约束。** 全站是蓝色系，不要引入红/绿/紫作为主色。
 
+令牌分三层（`src/styles/tokens.css`）：
+
+```
+1. 原始色板    --bm-blue-500          只在这里出现十六进制
+2. 透明度阶梯  --bm-brand-a18         品牌色的常用透明度档
+3. 语义别名    --bm-accent            写样式时只用这一层
+```
+
+**语义色**（写样式用这些）：
+
 | 令牌 | 值 | 用途 |
 | --- | --- | --- |
-| `--bm-canvas` | `#f7faff` | 页面底色（冷白） |
-| `--bm-canvas-tint` | `#eef4fc` | 次级底色 |
-| `--bm-text-strong` | `#1b2739` | 标题 |
-| `--bm-text` | `#3b4a61` | 正文 |
-| `--bm-text-muted` | `#5a6b82` | 辅助文字、轴标签 |
-| `--bm-accent` | `#1c6fc4` | 强调色（曲线、按钮、进度条填充） |
+| `--bm-bg-canvas` | `#f7faff` | 页面底色（冷白） |
+| `--bm-bg-tint` | `#eef4fc` | 次级底色 |
+| `--bm-bg-surface` | 品牌蓝 5% | 卡片 / 面板 |
+| `--bm-fg-strong` | `#1b2739` | 标题 |
+| `--bm-fg-default` | `#3b4a61` | 正文 |
+| `--bm-fg-muted` | `#5a6b82` | 辅助文字、轴标签 |
+| `--bm-accent` | `#1c6fc4` | 强调色 |
+| `--bm-stroke-soft` | 品牌蓝 12% | inset 高光 |
 | `--bm-gradient-title` | 亮蓝→靛蓝→海军蓝 | 大标题渐变 |
 
-**图表内的层次用「蓝色的深浅」表达，不要用不同色相**：
+**透明度阶梯**（`--bm-brand-a05` … `--bm-brand-a55`）：
+数字就是透明度百分比。`--bm-brand-a18` = `rgb(28 111 196 / 0.18)`。
+另有 `--bm-ink-a*`（深海军蓝，做阴影）与 `--bm-fg-a*`（文字色，做轴与刻度）。
 
-```
-曲线          #1c6fc4   实线，2px
-主数据（下和） rgba(28,111,196,0.42)   实心填充
-次级数据（上和） rgba(28,111,196,0.5)   虚线描边，不填充
-背景底纹      rgba(28,111,196,0.10)
-网格/轴       rgba(28,111,196,0.22)
-```
+**图表专用**（可视化页一律用这些，不要写裸 rgba）：
+
+| 令牌 | 用途 |
+| --- | --- |
+| `--bm-chart-line` | 曲线 |
+| `--bm-chart-dot` | 曲线端点 |
+| `--bm-chart-area` | 曲线下的底纹 |
+| `--bm-chart-fill` | 主数据（实心矩形） |
+| `--bm-chart-outline` | 次级数据（虚线描边） |
+| `--bm-chart-axis` | 坐标轴 |
+| `--bm-chart-tick` | 刻度 |
+| `--bm-chart-divider` | 分割点 |
+| `--bm-chart-gap` | 误差区（暖色） |
+
+**图表内的层次用「蓝色的深浅」表达，不要用不同色相。**
 
 ### 6.2 唯一的例外：暖色 = 「误差 / 问题」
 
 当你要表达「这里不对 / 还差多少」时，用琥珀色：
 
-```css
---viz-warm: rgba(226, 138, 62, 0.3);      /* 填充 */
---viz-warm-text: #b96c22;                  /* 文字 */
-```
+| 令牌 | 用途 |
+| --- | --- |
+| `--bm-chart-gap` | 误差区填充 |
+| `--bm-status-warning-surface` | 误差条轨道 |
+| `--bm-status-warning` | 误差数字（`#b96c22`） |
+| `--bm-meter-warn` | 误差条渐变（暖） |
+| `--bm-meter-ok` | 收敛后的渐变（蓝） |
 
 **只在这种情况下用暖色**。它不是装饰色，是状态色。黎曼和里「矩形没盖住的那道缝」就是它。
 
@@ -307,32 +332,40 @@ export const CHAPTER_CONTENTS = {
 
 **图表里的字号阶梯**：
 
-```
-轴标题    11px   --bm-text-muted
-轴刻度    12px   --bm-text-muted
-数据标签  12px   --bm-text
-数值      14px   --bm-text-strong, 600 字重
-说明文字  14px   --bm-text, line-height 1.72
-```
+| 令牌 | 值 | 用途 |
+| --- | --- | --- |
+| `--bm-font-size-caption2` | 11px | 轴标题 |
+| `--bm-font-size-caption1` | 12px | 轴刻度、小标签 |
+| `--bm-font-size-body1` | 14px | 正文、说明文字 |
+| `--bm-font-size-body2` | 16px | 强调正文 |
+| `--bm-font-size-subtitle1` | 20px | 小标题 |
+| `--bm-font-size-title2` | 28px | 区块标题 |
+| `--bm-font-size-display` | 40px | 首页大标题 |
+
+字重 `--bm-font-weight-{regular,medium,semibold}`（400/500/600），
+行高 `--bm-line-height-{tight,normal,relaxed}`（1.25/1.55/1.72）。
+
+数字统一加 `font-variant-numeric: tabular-nums`，避免跳动。
 
 ### 6.4 形状：不要画框
 
 **这是用户明确的审美偏好，违反会被打回。**
 
 - ❌ 不要给卡片/面板/图表元素加 `border`
-- ✅ 要区分层次，用**填充色阶**（`rgba(28,111,196,0.06)` → `0.12` → `0.2`）
-- ✅ 需要边界感时，用 `box-shadow: inset 0 0 0 1px rgba(...)` 或者干脆不用
-- ✅ 圆角统一偏大：卡片 18–22px，小控件 999px（胶囊）
+- ✅ 要区分层次，用**填充色阶**：`--bm-bg-surface`（5%）→ `--bm-brand-a12` → `--bm-brand-a18`
+- ✅ 需要边界感时，用 `box-shadow: inset 0 0 0 1px var(--bm-stroke-soft)` 或者干脆不用
+- ✅ 圆角统一偏大：卡片用 `--bm-radius-xl`（20px），小控件用 `--bm-radius-circular`
 - ✅ 阴影**只给浮层**（下拉、弹层），静态元素不加阴影
 
 ### 6.5 动效：克制
 
-| 场景 | 时长 | 缓动 |
+| 场景 | 时长令牌 | 曲线令牌 |
 | --- | --- | --- |
-| 视图切换 | 340ms | `--bm-ease-out` |
-| 元素淡入 | 200–300ms | `ease` |
-| 数值变化 | 120–150ms | `linear` |
-| 悬停反馈 | 200ms | `ease` |
+| 视图切换 | `--bm-duration-slower`（400ms） | `--bm-ease-out` |
+| 元素进场 | `--bm-duration-slow`（300ms） | `--bm-ease-decelerate` |
+| 元素退场 | `--bm-duration-fast`（150ms） | `--bm-ease-accelerate` |
+| 数值变化 | `--bm-duration-faster`（100ms） | `linear` |
+| 悬停反馈 | `--bm-duration-normal`（200ms） | `--bm-ease-standard` |
 
 - 位移幅度小：`translateY(10px)` 级别，不要飞入飞出
 - **不要做**：视差、弹跳、旋转入场、文字逐字动画
@@ -346,6 +379,45 @@ export const CHAPTER_CONTENTS = {
 - 尺寸档：16 / 17 / 20 / 24
 - 不要混用填充型和线型图标
 - 不引图标库（会加体积），手写 path 即可
+
+### 6.7 尺寸令牌
+
+**间距**（4px 基准，不要写 13px 这种值）：
+
+| 令牌 | 值 | 常见用途 |
+| --- | --- | --- |
+| `--bm-space-1` | 4px | 图标与文字之间 |
+| `--bm-space-2` | 8px | 紧凑间距 |
+| `--bm-space-3` | 12px | 列表项内 |
+| `--bm-space-4` | 16px | 卡片内边距 |
+| `--bm-space-5` | 24px | 区块之间 |
+| `--bm-space-6` | 32px | 大区块 |
+| `--bm-space-8` | 48px | 页面级留白 |
+
+**圆角**：
+
+| 令牌 | 值 | 用途 |
+| --- | --- | --- |
+| `--bm-radius-sm` | 4px | 小标签 |
+| `--bm-radius-md` | 8px | 输入框 |
+| `--bm-radius-lg` | 12px | 中等面板 |
+| `--bm-radius-xl` | 20px | 卡片（默认） |
+| `--bm-radius-circular` | 999px | 胶囊、圆形按钮 |
+
+**阴影**（数字是「离页面的高度」，越大越浮）：
+
+| 令牌 | 用途 |
+| --- | --- |
+| `--bm-shadow-2` | 轻微抬起 |
+| `--bm-shadow-4` | 卡片悬停 |
+| `--bm-shadow-8` | 下拉菜单 |
+| `--bm-shadow-16` | 弹层 |
+| `--bm-shadow-28` | 模态框 |
+
+**只在浮层上用阴影**，静态元素不加。
+
+**描边**：`--bm-stroke-thin`（1px）、`--bm-stroke-thick`（2px）。
+项目不用 `border` 画框，这两个只给 inset 高光与图表线条。
 
 ---
 
