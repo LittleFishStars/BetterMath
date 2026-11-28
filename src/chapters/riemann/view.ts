@@ -575,7 +575,6 @@ export class RiemannView {
   private redrawRects(n: number): void {
     this.drawnN = n;
     const bounds = intervalBounds(n);
-    const h = A / n;
 
     const rects = document.createDocumentFragment();
     for (const { x0, x1, min, max } of bounds) {
@@ -603,12 +602,13 @@ export class RiemannView {
     this.rectLayer.replaceChildren(rects);
 
     // 分点刻度。首尾的「0」「a」由静态层画，这里只画中间的。
+    // 位置取自随机分割点，不能再按 i*(A/n) 算 —— 那样刻度和矩形会对不上。
     const ticks = document.createDocumentFragment();
     const labelAll = n <= 10;
     const mid = Math.floor(n / 2);
 
-    for (let i = 1; i < n; i += 1) {
-      const x = px(i * h);
+    for (let i = 1; i < bounds.length; i += 1) {
+      const x = px(bounds[i].x0);
       ticks.append(
         el('line', {
           x1: x, y1: PLOT.bottom, x2: x, y2: PLOT.bottom + 7, class: 'viz__divider',
