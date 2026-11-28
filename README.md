@@ -52,6 +52,7 @@ src/main.ts               入口：路由接线、视图切换
 src/chapters/             章节数据、渲染、路由、转场
 src/viz/                  可视化框架（外壳、进度条、SVG 工具、注册表）
 src/viz/riemann/          参考实现：定积分与黎曼和
+src/viz/integrability/    函数可积的定义，以及两种不可积的反例
 src/field/                首页背景的符号场（Canvas）
 src/styles/               设计令牌、字体、页面样式
 public/fonts/             Send Flowers 手写花体（自托管，latin 子集 32KB）

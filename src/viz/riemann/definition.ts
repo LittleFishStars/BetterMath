@@ -215,6 +215,13 @@ export function createRiemannViz(): VizDefinition {
     keyframes: KEYFRAMES,
     intro: INTRO,
 
+    // 这一节讲完之后往下走：黎曼和「收敛」到底是什么意思，
+    // 以及什么样的函数根本收敛不了。
+    deeper: {
+      contentId: 'integrability',
+      label: '深入：可积是什么意思',
+    },
+
     mountFigure(host: HTMLElement): void {
       const svg = el('svg', {
         class: 'viz__plot', viewBox: `0 0 ${VIEW_W} ${VIEW_H}`,

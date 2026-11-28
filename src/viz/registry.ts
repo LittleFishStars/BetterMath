@@ -10,6 +10,7 @@
  */
 import type { VizDefinition } from './types';
 import { createRiemannViz } from './riemann/definition';
+import { createIntegrabilityViz } from './integrability/definition';
 
 export interface VizEntry {
   /** 加载可视化定义（同步或异步） */
@@ -20,6 +21,10 @@ export interface VizEntry {
 export const VISUALS: Record<string, VizEntry> = {
   riemann: {
     load: () => createRiemannViz(),
+  },
+
+  integrability: {
+    load: () => createIntegrabilityViz(),
   },
 
   // 将来加三维时大约长这样：

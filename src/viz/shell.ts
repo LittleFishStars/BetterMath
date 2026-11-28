@@ -27,6 +27,14 @@ const T_INTRO_OUT_END = 0.16;
 const T_CAPTION_IN_START = 0.1;
 const T_CAPTION_IN_END = 0.22;
 
+/**
+ * 进度到这里才算「讲完了」，进度条上方的「深入」入口开始淡入。
+ *
+ * 取 0.985 而不是 1：拖动条停在末尾附近时就该出现，不必精确到小数点后三位；
+ * 同时留一点余量，播放到最后几帧时按钮已在淡入，视觉上与「播完」同步。
+ */
+const T_DEEPER_SHOW = 0.985;
+
 function smoothstep(a: number, b: number, x: number): number {
   if (b <= a) return x >= b ? 1 : 0;
   const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
@@ -43,11 +51,21 @@ export class VizShell {
   private readonly intro: HTMLElement;
   private readonly caption: HTMLElement;
   private readonly cleanup: (() => void) | void;
+  /** 进度条上方的「深入」入口；definition 没写 deeper 时是 null */
+  private readonly deeper: HTMLElement | null = null;
   /** 上一次渲染的说明文字原文，用来避免每帧重算 KaTeX */
   private lastCaption = '';
   private readonly introSource: string;
 
-  constructor(def: VizDefinition, onBack: () => void) {
+  constructor(
+    def: VizDefinition,
+    onBack: () => void,
+    /**
+     * 「深入」按钮的去向。不传就不显示这个按钮 ——
+     * 即使 definition 写了 deeper，没有跳转函数也点不动，不如不画。
+     */
+    onDeeper?: (contentId: string) => void,
+  ) {
     this.def = def;
 
     this.root = h('div', { class: 'viz' });
@@ -81,6 +99,20 @@ export class VizShell {
       keyframes: def.keyframes,
       onProgress: (t) => this.render(t),
     });
+
+    // 「深入」入口紧挨在进度条上方居中。它属于「这一节讲完之后去哪」，
+    // 所以由外壳统一摆放，definition 只声明目标条目 id。
+    const deeperEntry = def.deeper;
+    if (deeperEntry && onDeeper) {
+      const deeper = h('div', { class: 'viz__deeper' });
+      const button = h('button', { class: 'viz__deeper-btn', type: 'button' });
+      button.textContent = deeperEntry.label ?? '深入';
+      button.addEventListener('click', () => onDeeper(deeperEntry.contentId));
+      deeper.append(button);
+      this.deeper = deeper;
+      this.root.append(deeper);
+    }
+
     this.root.append(this.timeline.root);
 
     const ctx: VizContext = {
@@ -150,6 +182,9 @@ export class VizShell {
 
     const captionOpacity = smoothstep(T_CAPTION_IN_START, T_CAPTION_IN_END, t);
     this.caption.style.opacity = String(captionOpacity);
+
+    // 讲完了才把「深入」入口放出来；拖回前面会自然收起。
+    this.deeper?.classList.toggle('is-shown', t >= T_DEEPER_SHOW);
   }
 
   setProgress(t: number): void {

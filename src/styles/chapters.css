@@ -931,6 +931,10 @@
   width: 100%;
   height: auto;
   overflow: visible;
+  /* SVG <text> 不继承 HTML 的字体栈，显式写死更保险：
+     少这一行时，小字号 + 600 字重的中文会掉进合成粗体，
+     在部分浏览器里直接渲染成豆腐块。 */
+  font-family: var(--bm-font-sans);
 }
 
 /* ── 坐标轴与刻度 ── */
@@ -1185,6 +1189,188 @@
    分段的胶囊：每段一个独立圆角条，段与段之间断开。
    段的宽度由 flex-grow 按「这段要播多少秒」分配 —— 长度与时长成正比，
    于是进度条的位置就等于时间轴上的位置，拖到哪儿看到的就是那一刻。 */
+
+/* ── 「深入」入口 ──
+   进度讲完之后才出现，位置在进度条正上方居中。
+   用 max-height 过渡而不是 display 切换：出现时不会把进度条往下顶一格。 */
+.viz__deeper {
+  display: flex;
+  justify-content: center;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(6px);
+  transition:
+    max-height var(--bm-duration-slow) var(--bm-ease-decelerate),
+    opacity var(--bm-duration-normal) var(--bm-ease-standard),
+    transform var(--bm-duration-slow) var(--bm-ease-decelerate);
+}
+
+.viz__deeper.is-shown {
+  max-height: 3.6rem;
+  opacity: 1;
+  transform: none;
+}
+
+.viz__deeper-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42em;
+  margin: 0 0 0.66rem;
+  padding: 0.52rem 1.2rem;
+  border: 0;
+  border-radius: var(--bm-radius-circular);
+  background: var(--bm-accent);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.86rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: background-color var(--bm-duration-normal) var(--bm-ease-standard);
+}
+
+.viz__deeper-btn:hover {
+  background: var(--bm-accent-hover);
+}
+
+.viz__deeper-btn:focus-visible {
+  outline: 2px solid var(--bm-accent);
+  outline-offset: 3px;
+}
+
+/* ── 可积性那一节的面板指标 ── */
+.viz__metric-label {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  color: var(--bm-fg-muted);
+}
+
+.viz__metric-value {
+  margin: 0.1rem 0 0.55rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+  color: var(--bm-fg-strong);
+}
+
+.viz__metric-note {
+  margin: 0.55rem 0 0;
+  font-size: 0.78rem;
+  line-height: 1.62;
+  color: var(--bm-fg-muted);
+}
+
+/* ── 可积性：场景图元 ── */
+
+/* 狄利克雷：上排是有理点（值 1），下排是无理点（值 0） */
+.viz__dot-rational {
+  fill: var(--bm-chart-line);
+}
+
+.viz__dot-irrational {
+  fill: var(--bm-chart-outline);
+}
+
+/* 水平参考线（D=0 与 D=1） */
+.viz__guide {
+  stroke: var(--bm-chart-tick);
+  stroke-width: 1;
+  stroke-dasharray: 2 5;
+}
+
+/* 场景内的说明标签 */
+.viz__scene-tag {
+  font-size: 12px;
+  fill: var(--bm-fg-muted);
+}
+
+/* 场景四顶部的判据 */
+.viz__scene-rule {
+  font-size: 14px;
+  font-weight: 500;
+  fill: var(--bm-fg-strong);
+}
+
+/* 冲向无穷的箭头与 ∞：暖色 —— 这里是「出问题了」，属于状态色不是装饰色 */
+.viz__runaway-arrow {
+  stroke: var(--bm-status-warning);
+  stroke-width: 1.6;
+  fill: none;
+  stroke-linecap: round;
+}
+
+.viz__runaway-label {
+  font-size: 15px;
+  font-weight: 600;
+  fill: var(--bm-status-warning);
+}
+
+/* 贴 0 的那一段矩形其实还在往上长，用暖色虚线表示「没有有限高度」 */
+.viz__rect--runaway {
+  fill: var(--bm-status-warning-surface);
+  stroke: var(--bm-status-warning);
+  stroke-width: 1;
+  stroke-dasharray: 4 4;
+}
+
+/* ── 场景四：三列对比卡片 ── */
+.viz__card {
+  fill: var(--bm-bg-surface);
+}
+
+.viz__card--bad {
+  fill: var(--bm-status-warning-track);
+}
+
+.viz__card-plot {
+  fill: var(--bm-bg-tint);
+}
+
+.viz__card-title {
+  font-size: 14px;
+  font-weight: 500;
+  fill: var(--bm-fg-strong);
+}
+
+.viz__card-verdict {
+  font-size: 14.5px;
+  font-weight: 600;
+  fill: var(--bm-accent);
+}
+
+.viz__card-verdict--bad {
+  fill: var(--bm-status-warning);
+}
+
+/* Thomae 缩略图里的尖峰：孤立的细柱，不要连成一片 */
+/* 狄利克雷那一幕的夹层双箭头：标「上下和之差恒为 1」 */
+.viz__gap-arrow {
+  stroke: var(--bm-status-warning);
+  stroke-width: 1.5;
+  fill: none;
+  stroke-linecap: round;
+}
+
+.viz__gap-label {
+  font-size: 13px;
+  font-weight: 500;
+  fill: var(--bm-status-warning);
+}
+
+.viz__spike {
+  stroke: var(--bm-chart-line);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  opacity: 0.85;
+}
+
+.viz__card-why {
+  font-size: 12px;
+  fill: var(--bm-fg-muted);
+}
 
 .viz__timeline {
   flex: none;

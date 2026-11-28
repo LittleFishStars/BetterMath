@@ -20,6 +20,19 @@ export interface VizContext {
   setProgress(t: number): void;
 }
 
+/**
+ * 「深入」入口：指到同章节下的另一个内容条目。
+ *
+ * 只有 definition 写了这个字段，外壳才会在进度走到末尾时
+ * 于进度条上方居中淡入按钮；不写就完全没有这个按钮。
+ */
+export interface DeeperEntry {
+  /** 目标内容条目的 id（必须在同一个章节里） */
+  contentId: string;
+  /** 按钮文字，缺省「深入」 */
+  label?: string;
+}
+
 export interface VizDefinition {
   /** 分段：决定进度条各段宽度与播放节奏 */
   segments: readonly VizSegment[];
@@ -43,6 +56,14 @@ export interface VizDefinition {
 
   /** 当前这一幕的说明文字 */
   caption(t: number): string;
+
+  /**
+   * 进度走到末尾后，在进度条**上方居中**淡入的「深入」入口。
+   *
+   * 它是这条内容讲完之后的去处：换到同章节下的另一个可视化。
+   * 不写就没有这个按钮。
+   */
+  deeper?: DeeperEntry;
 
   /** 进入可视化页时是否把焦点放到播放键（默认 true） */
   autofocus?: boolean;
