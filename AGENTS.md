@@ -656,7 +656,7 @@ caption: (t) => '这个极限就是 $\\int_0^a f(x)\\,dx$'
 ### 代码
 
 - [ ] `math.ts` 里没有 DOM 相关代码
-- [ ] 没有引入运行时依赖
+- [ ] 没有新增运行时依赖（现有只有 KaTeX）
 - [ ] `npm run build` 通过（含 `tsc --noEmit`）
 - [ ] 主包体积没有明显增长（基线：JS 51KB / gzip 17KB）
 - [ ] Console 无报错
@@ -710,7 +710,7 @@ git push origin viz/<slug>
 2. 五幕各是什么
 3. 关键帧截图——至少第 1 幕（笨办法）和第 4 幕（结论）
 4. 第 11 节验收清单的勾选情况
-5. 主包体积有没有变化（`npm run build` 会打印，基线 JS 51 KB / gzip 17 KB）
+5. 主包体积有没有变化（`npm run build` 会打印，基线 JS 53 KB / gzip 18 KB）
 
 **贡献者不要做的事**：
 
@@ -724,7 +724,7 @@ git push origin viz/<slug>
 **审 PR 至少做三件事**：
 
 1. **本地跑一遍**：`git switch <分支> && npm run dev`，五个关键帧逐一点过去，拖一遍进度条
-2. **看体积**：`npm run build`，对比基线。涨得离谱要问原因（比如有人偷偷引了 Three.js 进主包）
+2. **看体积**：`npm run build`，对比基线（JS 53 KB / gzip 18 KB）。涨得离谱要问原因（比如有人把 Three.js 打进了主包）
 3. **看风格**：对照第 6 节——有没有画框、有没有非蓝色、动效是不是太花
 
 三项都过再合并。
@@ -772,7 +772,7 @@ bash scripts/deploy.sh       # 构建 → 产物检查 → rsync 到服务器 �
 - 数学与渲染分离，math.ts 里不碰 DOM
 - 用 SVG 渲染（除非元素超过 500 个）
 - 在 registry.ts 和 data.ts 各加一行注册
-- 不引入任何运行时依赖
+- 不新增运行时依赖（KaTeX 已接入，公式直接写 $...$）
 - 每帧状态由 update(t) 连续插值，不要为中间态写特例
 
 交付要求：
