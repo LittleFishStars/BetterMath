@@ -1,6 +1,9 @@
 # BetterMath
 
-数学可视化站点。目前只有首页。
+数学可视化站点。
+
+> **想用 AI 做一个新的可视化页？** 先读 [AGENTS.md](./AGENTS.md)。
+> 它写了可视化框架的用法、配色与动效规范、五幕叙事结构、以及一批实际踩过的坑。
 
 ## 首屏加载页
 
@@ -130,6 +133,9 @@ inset 高光 + 淡阴影），但**不做 3D 倾斜也不浮起** —— 一行�
 条目上带 `visual` 的可以点进去看可视化。
 
 ## 可视化页：定积分与黎曼和
+
+> 这一节讲的是**已有的那个实现**。要做新的可视化，请按
+> [AGENTS.md](./AGENTS.md) 的流程走，不要直接照抄这里的代码。
 
 `/chapters/mathematical-analysis/riemann-integral`，实现在 `src/chapters/riemann/`。
 
