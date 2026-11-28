@@ -1032,10 +1032,27 @@
   color: var(--bm-text);
 }
 
+.viz__panel-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  min-height: 0;
+}
+
 .viz__panel-a {
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+/* 按需加载的可视化（如三维场景）还没到位时的占位 */
+.viz-loading {
+  display: grid;
+  place-items: center;
+  min-height: 42vh;
+  font-size: 0.88rem;
+  letter-spacing: 0.04em;
+  color: var(--bm-text-muted);
 }
 
 /* ── 误差条 ──

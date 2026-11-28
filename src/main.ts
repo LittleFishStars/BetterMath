@@ -16,7 +16,8 @@ const bootShownAt = performance.now();
 import { Router, type Route } from './chapters/router';
 import { bindHeadScroll, renderChapterDetail, renderChapters } from './chapters/render';
 import { CHAPTER_CONTENTS, findChapter } from './chapters/data';
-import { RiemannView } from './chapters/riemann/view';
+import { VISUALS } from './viz/registry';
+import { VizShell } from './viz/shell';
 import {
   enterChapters,
   leaveChapters,
@@ -173,10 +174,13 @@ function bootstrap(): void {
   };
 
   // ── 可视化页 ──
-  // 目前只有一个组件，键名对应 ContentItem.visual
+  // 具体实现查注册表，main.ts 不认识任何具体可视化
   let currentViz: { destroy(): void } | null = null;
+  /** 异步加载的可视化如果还没到就换了页，用它作废回调 */
+  let vizLoadToken = 0;
 
   const disposeViz = (): void => {
+    vizLoadToken += 1;
     currentViz?.destroy();
     currentViz = null;
     vizBox.replaceChildren();
@@ -187,19 +191,40 @@ function bootstrap(): void {
     const chapter = findChapter(chapterId);
     const items = CHAPTER_CONTENTS[chapterId] ?? [];
     const item = items.find((entry) => entry.id === contentId);
-    if (!chapter || !item || !item.visual) return false;
+    if (!chapter || !item?.visual) return false;
+
+    const entry = VISUALS[item.visual];
+    if (!entry) return false;
 
     disposeViz();
+    const token = vizLoadToken;
 
-    if (item.visual === 'riemann') {
-      const view = new RiemannView({
-        // 返回上一层：内容页
-        onBack: () => router.navigate({ view: 'chapter', chapterId }),
+    const place = (shell: VizShell): void => {
+      shell.setTitle(item.title);
+      vizBox.replaceChildren(shell.root);
+      currentViz = shell;
+      if (shell.autofocus) shell.focus();
+    };
+
+    const loaded = entry.load();
+    if (loaded instanceof Promise) {
+      // 复杂可视化（比如带 Three.js 的三维场景）是按需加载的，
+      // 先放个占位，等 chunk 到了再换上去。
+      const placeholder = document.createElement('div');
+      placeholder.className = 'viz-loading';
+      placeholder.textContent = '正在加载…';
+      vizBox.replaceChildren(placeholder);
+
+      void loaded.then((def) => {
+        if (token !== vizLoadToken) return; // 期间已经切走了
+        const shell = new VizShell(def, () => router.navigate({ view: 'chapter', chapterId }));
+        place(shell);
+        vizBox.classList.add('is-revealed');
       });
-      vizBox.replaceChildren(view.root);
-      currentViz = view;
+      currentViz = { destroy: () => { /* 由 token 作废 */ } };
     } else {
-      return false;
+      const shell = new VizShell(loaded, () => router.navigate({ view: 'chapter', chapterId }));
+      place(shell);
     }
 
     headNav.classList.add('is-gone');
