@@ -601,20 +601,33 @@ export class RiemannView {
     this.gapLayer.replaceChildren(gaps);
     this.upperLayer.replaceChildren(upper);
 
-    // 分点刻度（位置取自随机分割点）
+    // 分点刻度（位置取自随机分割点）。
+    //
+    // 标签按可用宽度决定显不显示：一个「x₁」连下标约 20px，
+    // 摆不下就整排不显示 —— 挤成一团比不显示更糟。
+    // 刻度线本身始终保留，它标的是分割点的位置。
+    const plotWidth = PLOT.right - PLOT.left;
+    const labelBudget = Math.floor((plotWidth * 0.86) / 20);
+    const showLabels = n <= labelBudget;
+
     const ticks = document.createDocumentFragment();
-    const labelAll = n <= 10;
-    const mid = Math.floor(n / 2);
     for (let i = 1; i < bounds.length; i += 1) {
       const x = px(bounds[i].x0);
       ticks.append(
         el('line', { x1: x, y1: PLOT.bottom, x2: x, y2: PLOT.bottom + 7, class: 'viz__divider' }),
       );
-      if (labelAll || i === mid) {
-        const t = el('text', { x, y: PLOT.bottom + 24, class: 'viz__divider-label', 'text-anchor': 'middle' });
-        t.textContent = `x${i}`;
-        ticks.append(t);
-      }
+
+      if (!showLabels) continue;
+
+      // x 后面的序号做成真下标，而不是和 x 一样大的平排数字
+      const label = el('text', {
+        x, y: PLOT.bottom + 24, class: 'viz__divider-label', 'text-anchor': 'middle',
+      });
+      label.textContent = 'x';
+      const sub = el('tspan', { dy: '3.4', 'font-size': '8.5' });
+      sub.textContent = String(i);
+      label.append(sub);
+      ticks.append(label);
     }
     this.tickLayer.replaceChildren(ticks);
   }
