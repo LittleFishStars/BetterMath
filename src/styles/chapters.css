@@ -1032,6 +1032,22 @@
   color: var(--bm-fg-default);
 }
 
+/* KaTeX 公式：与中文正文协调，别把行高撑得太开 */
+.viz__caption .katex,
+.viz__intro-text .katex {
+  font-size: 1.02em;
+  line-height: 1.15;
+}
+
+/* KaTeX 尚未加载完时的兜底：等宽显示，至少认得出是公式 */
+.viz__tex-pending {
+  padding: 0 0.22em;
+  border-radius: var(--bm-radius-sm);
+  background: var(--bm-brand-a08);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.9em;
+}
+
 .viz__panel-slot {
   display: flex;
   flex-direction: column;

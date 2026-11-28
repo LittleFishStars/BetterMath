@@ -199,11 +199,15 @@ export function createRiemannViz(): VizDefinition {
     tickLayer.replaceChildren(ticks);
   };
 
+  // 说明文字里的 $...$ 由 KaTeX 渲染（见 math-text.ts）
   const captionFor = (t: number): string => {
     if (t < T_RECT_IN_START) return '曲线下这块不规则的区域，没有现成的面积公式。';
     if (t <= T_KF_FINE) return '用矩形去填。填得越细，露出来的那道缝就越窄。';
-    if (t <= T_KF_BOUNDS) return '缝窄到一定程度，真实值就被夹在「上和」与「下和」之间。';
-    return 'n 继续增大，两条边界合拢 —— 这个极限就是定积分。';
+    if (t <= T_KF_BOUNDS) {
+      return '缝窄到一定程度，真实值就被夹在中间：' +
+        '$\\sum m_i\\Delta x_i \\le \\int_0^a f \\le \\sum M_i\\Delta x_i$';
+    }
+    return '两条边界合拢，这个极限就是 $\\int_0^a f(x)\\,dx$';
   };
 
   return {

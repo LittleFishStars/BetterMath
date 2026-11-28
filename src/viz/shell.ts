@@ -17,6 +17,7 @@
  * 三维可视化那种会带进 Three.js 的页面不会把主包撑大。
  */
 import { h } from './svg';
+import { preloadMath, renderMathText } from './math-text';
 import { Timeline } from './timeline';
 import type { VizContext, VizDefinition } from './types';
 
@@ -42,6 +43,9 @@ export class VizShell {
   private readonly intro: HTMLElement;
   private readonly caption: HTMLElement;
   private readonly cleanup: (() => void) | void;
+  /** 上一次渲染的说明文字原文，用来避免每帧重算 KaTeX */
+  private lastCaption = '';
+  private readonly introSource: string;
 
   constructor(def: VizDefinition, onBack: () => void) {
     this.def = def;
@@ -90,9 +94,11 @@ export class VizShell {
     // 绘图区挂载：实现自己决定放 SVG 还是 canvas
     this.cleanup = def.mountFigure(this.figure, ctx) ?? undefined;
 
-    // 导入语盖在绘图区上
+    // 导入语盖在绘图区上。文本里的 $...$ 由 KaTeX 渲染，
+    // 没加载完时先显示等宽的原文（见 math-text.ts）。
+    this.introSource = def.intro ?? '';
     if (def.intro) {
-      this.intro.innerHTML = `<p class="viz__intro-text">${def.intro}</p>`;
+      this.intro.innerHTML = `<p class="viz__intro-text">${renderMathText(def.intro)}</p>`;
       this.figure.append(this.intro);
     } else {
       this.intro.style.display = 'none';
@@ -101,6 +107,17 @@ export class VizShell {
     def.mountPanel?.(this.panel, ctx);
 
     this.render(0);
+
+    // 公式按需加载。到货后把导入语与说明文字重渲染一遍，
+    // 把之前兜底的等宽文本换成排版好的公式。
+    void preloadMath().then(() => {
+      if (this.introSource) {
+        this.intro.innerHTML =
+          `<p class="viz__intro-text">${renderMathText(this.introSource)}</p>`;
+      }
+      this.lastCaption = ''; // 强制下一帧重算
+      this.render(this.timeline.progress);
+    });
   }
 
   /** 设置返回按钮上的文字（通常是内容条目名） */
@@ -118,9 +135,14 @@ export class VizShell {
   private render(t: number): void {
     this.def.update(t);
 
+    // 说明文字可能含 $...$ 公式。只在原文变化时重算 ——
+    // 每帧都跑一遍 KaTeX 太浪费。
     const text = this.def.caption(t);
-    const captionText = this.root.querySelector('.viz__caption-text');
-    if (captionText && captionText.textContent !== text) captionText.textContent = text;
+    if (text !== this.lastCaption) {
+      this.lastCaption = text;
+      const captionText = this.root.querySelector('.viz__caption-text');
+      if (captionText) captionText.innerHTML = renderMathText(text);
+    }
 
     const introOpacity = 1 - smoothstep(T_INTRO_OUT_START, T_INTRO_OUT_END, t);
     this.intro.style.opacity = String(introOpacity);
