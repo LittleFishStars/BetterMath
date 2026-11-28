@@ -228,22 +228,14 @@ function bootstrap(): void {
 
       void loaded.then((def) => {
         if (token !== vizLoadToken) return; // 期间已经切走了
-        const shell = new VizShell(
-          def,
-          () => router.navigate({ view: 'chapter', chapterId }),
-          // 「深入」按钮：留在同一个章节里，换到下一个内容条目
-          (nextContentId) => router.navigate({ view: 'viz', chapterId, contentId: nextContentId }),
-        );
+        // 「深入」按钮由外壳自己处理（切到下一个部分），这里只管返回
+        const shell = new VizShell(def, () => router.navigate({ view: 'chapter', chapterId }));
         place(shell);
         vizBox.classList.add('is-revealed');
       });
       currentViz = { destroy: () => { /* 由 token 作废 */ } };
     } else {
-      const shell = new VizShell(
-        loaded,
-        () => router.navigate({ view: 'chapter', chapterId }),
-        (nextContentId) => router.navigate({ view: 'viz', chapterId, contentId: nextContentId }),
-      );
+      const shell = new VizShell(loaded, () => router.navigate({ view: 'chapter', chapterId }));
       place(shell);
     }
 

@@ -1,9 +1,12 @@
 /**
  * 可视化的统一契约
  *
- * 新增一个可视化 = 实现这个接口 + 在 registry.ts 注册一行。
- * 外壳（VizShell）负责舞台、进度条、播放控件、导入语、说明文字，
- * 具体实现只管「画什么」和「这一刻说什么」。
+ * 一个可视化由一到多个「部分」组成。每个部分有自己的进度条、图形、
+ * 面板和说明文字 —— 它们互不相干，不共用时间轴。
+ *
+ *   单部分  → 直接实现 VizPart 的那几个字段
+ *   多部分  → { parts: [...] }，外壳为每个部分各建一条进度条，
+ *             默认只显示第一个，靠 VizPart.next 声明的按钮往后切
  */
 import type { VizSegment } from './timeline';
 
@@ -21,43 +24,15 @@ export interface VizContext {
 }
 
 /**
- * 「深入」入口：指到同章节下的另一个内容条目。
- *
- * 只有 definition 写了这个字段，外壳才会在进度走到末尾时
- * 于进度条上方居中淡入按钮；不写就完全没有这个按钮。
+ * 一个部分：自己一套进度、图形、面板与说明文字。
  */
-export interface DeeperEntry {
-  /**
-   * 目标内容条目的 id（必须在同一个章节里）。
-   * 与 `at` 二选一 —— 给了 at 就在本节内部往后跳。
-   */
-  contentId?: string;
-
-  /**
-   * 跳到**本可视化内部**的某个进度。
-   *
-   * 用在「同一节分两部分」的场合：前半段讲完，按钮把人送到后半段的起点，
-   * 路由不变、还是同一条内容。
-   */
-  at?: number;
-
-  /** 按钮文字，缺省「深入」 */
-  label?: string;
-
-  /** 进度到这里才显示，缺省 0.985（即「讲完了」） */
-  showAt?: number;
-
-  /** 进度到这里就收起。缺省不收 —— 用于「点过之后不该再留着」的跳转按钮 */
-  hideAt?: number;
-}
-
-export interface VizDefinition {
-  /** 分段：决定进度条各段宽度与播放节奏 */
+export interface VizPart {
+  /** 分段：决定本部分进度条各段宽度与播放节奏 */
   segments: readonly VizSegment[];
   /** 关键帧的内部进度（0..1），决定圆点位置与「下一节」的跳点 */
   keyframes: readonly number[];
 
-  /** 开场那句导入语；不写就不显示 */
+  /** 本部分的开场导入语；不写就不显示 */
   intro?: string;
 
   /**
@@ -69,20 +44,46 @@ export interface VizDefinition {
   /** 挂载右侧面板（滑动条、数值、图例等）。不写就是没有面板 */
   mountPanel?(host: HTMLElement, ctx: VizContext): void;
 
-  /** 每帧更新。t 是 0..1 的内部进度 */
+  /** 每帧更新。t 是本部分内部的进度 0..1 */
   update(t: number): void;
 
   /** 当前这一幕的说明文字 */
   caption(t: number): string;
 
   /**
-   * 进度走到末尾后，在进度条**上方居中**淡入的「深入」入口。
+   * 本部分讲完后，在进度条上方居中出现的按钮 —— 点了切到下一部分。
    *
-   * 它是这条内容讲完之后的去处：换到同章节下的另一个可视化。
-   * 不写就没有这个按钮。
+   * 只有确实还有下一部分时才画得出来；最后一部分写了也不显示。
    */
-  deeper?: DeeperEntry;
+  next?: {
+    /** 按钮文字，缺省「深入」 */
+    label?: string;
+  };
 
-  /** 进入可视化页时是否把焦点放到播放键（默认 true） */
+  /** 进入本部分时是否把焦点放到播放键（默认 true） */
   autofocus?: boolean;
+}
+
+/**
+ * 多部分可视化：几个互不相干的部分放在同一条内容条目下。
+ *
+ * 「定积分与黎曼和」就是这种：前半段讲矩形逼近，后半段讲可积性。
+ * 两者共用一条路由，但各有各的进度条 —— 看完前半段点「深入」才进入后半段。
+ */
+export interface MultiPartViz {
+  parts: readonly VizPart[];
+  autofocus?: boolean;
+}
+
+/** 单部分就直接写那几个字段；多部分用 { parts: [...] } */
+export type VizDefinition = VizPart | MultiPartViz;
+
+/** 类型收窄：判断是不是多部分 */
+export function isMultiPart(def: VizDefinition): def is MultiPartViz {
+  return 'parts' in def;
+}
+
+/** 统一取出部分数组 */
+export function partsOf(def: VizDefinition): readonly VizPart[] {
+  return isMultiPart(def) ? def.parts : [def];
 }

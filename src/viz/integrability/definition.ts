@@ -1,9 +1,9 @@
 /**
  * 可积性：这是「定积分与黎曼和」的**第二部分**，不是独立页面。
  *
- * riemann/definition.ts 直接复用这里的 mountFigure / update / caption，
- * 把它接在黎曼和后面共用一条进度条；segments 与 keyframes 由外层统一管理，
- * 本文件里的那两份只是让返回值满足 VizDefinition 的形状，运行时不参与排程。
+ * riemann/definition.ts 把它放进 parts 数组，外壳会为它单独建一条进度条。
+ * 所以这里的一切都按「独立的一节」来写：自己的分段、自己的导入语、
+ * 从 0 开始淡入 —— 用户点「深入」进来时看到的是全新的开头。
  *
  * 承接第一部分：那边把面积逼近出来了，这里追问
  * ——「黎曼和收敛」到底是什么意思？是不是所有函数都行？
@@ -22,7 +22,7 @@
  * 没法挤在同一套坐标里连续变形，分开画反而更清楚。
  */
 import { el, h, scale, smoothstep } from '../svg';
-import type { VizContext, VizDefinition } from '../types';
+import type { VizContext, VizPart } from '../types';
 import type { VizSegment } from '../timeline';
 import {
   DIRICHLET_GAP,
@@ -80,6 +80,10 @@ const T_KF_DIRICHLET = 0.45;
 const T_KF_UNBOUNDED = 0.68;
 const T_KF_CONCLUDE = 0.86;
 
+/** 场景一淡入：只留一句导入语、图完全空着，点第一帧会以为没加载 */
+const T_A_IN_START = 0.02;
+const T_A_IN_END = 0.12;
+
 /** 场景一 → 二、二 → 三、三 → 四的交叉起点 */
 const T_AB_START = T_KF_DIRICHLET - CROSSFADE;
 const T_BC_START = T_KF_UNBOUNDED - CROSSFADE;
@@ -136,7 +140,7 @@ function unboundedCurvePath(): string {
   return points.join(' ');
 }
 
-export function createIntegrabilityViz(): VizDefinition {
+export function createIntegrabilityViz(): VizPart {
   // ── 场景容器 ──
   let sceneA: SVGGElement;
   let sceneB: SVGGElement;
@@ -336,9 +340,8 @@ export function createIntegrabilityViz(): VizDefinition {
       const n = aN(t);
       if (n !== drawnN) redrawA(n);
 
-      // 不从 0 淡入：这一部分是被「深入」按钮切过来的，
-      // 进来就该看到完整画面（淡入只会让第一屏又空着）。
-      const aOpacity = 1 - smoothstep(T_AB_START, T_KF_DIRICHLET, t);
+      const aOpacity =
+        smoothstep(T_A_IN_START, T_A_IN_END, t) * (1 - smoothstep(T_AB_START, T_KF_DIRICHLET, t));
       sceneA.style.opacity = String(aOpacity);
 
       // 夹层随分割加细而变薄，所以上和的虚线也要一起淡 ——
@@ -366,8 +369,8 @@ export function createIntegrabilityViz(): VizDefinition {
       axesLayer.style.opacity = String(Math.max(aOpacity, cOpacity));
 
       // ── 面板：跟着当前场景换指标 ──
-      // 不做整体淡入 —— 第二部分一进来面板就该有内容
-      panelEl.style.opacity = '1';
+      const panelOpacity = smoothstep(0.06, 0.18, t);
+      panelEl.style.opacity = String(panelOpacity);
       panelEl.style.pointerEvents = 'none';
 
       if (t < T_KF_DIRICHLET) {
