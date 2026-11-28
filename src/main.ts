@@ -139,13 +139,25 @@ function bootstrap(): void {
   };
 
   /** 摆好列表（不做动画，供首屏与 header 转场使用） */
+  /**
+   * 三个主体（列表 / 内容页 / 可视化）同时只有一个可见。
+   *
+   * 切换时**必须**把其余的收起来。之前 showList 只收了 detailBox、
+   * prepareDetail 只收了 chaptersBody，谁都没管 vizBox ——
+   * 于是从可视化页直接回首页再进章节页，可视化会「接在后面」一起显示。
+   */
+  const showOnly = (active: HTMLElement): void => {
+    for (const el of [refs.chaptersBody, detailBox, vizBox]) {
+      el.hidden = el !== active;
+    }
+  };
+
   const showList = (): void => {
-    detailBox.hidden = true;
+    showOnly(refs.chaptersBody);
     detailBox.classList.remove('is-revealed', 'is-leaving');
     // 分类锚点淡回。首屏时整棵树刚从 display:none 出来，
     // 同一帧加的 class 不产生过渡，所以直接这么写就够了。
     headNav.classList.remove('is-gone');
-    refs.chaptersBody.hidden = false;
   };
 
   /** 渲染并摆好内容页（不做动画） */
@@ -167,9 +179,8 @@ function bootstrap(): void {
 
     // header 的分类锚点在内容页没有意义，淡出（首屏时无过渡）
     headNav.classList.add('is-gone');
-    refs.chaptersBody.hidden = true;
+    showOnly(detailBox);
     refs.chaptersBody.classList.remove('is-revealed', 'is-leaving');
-    detailBox.hidden = false;
     return true;
   };
 
@@ -228,9 +239,7 @@ function bootstrap(): void {
     }
 
     headNav.classList.add('is-gone');
-    refs.chaptersBody.hidden = true;
-    detailBox.hidden = true;
-    vizBox.hidden = false;
+    showOnly(vizBox);
     return true;
   };
 
@@ -320,10 +329,26 @@ function bootstrap(): void {
         enterBody(bodyOf(next));
         document.body.dataset.route = 'chapters';
       } else {
-        // 从内容页回主页时，显示着的是 detailBox 而不是章节列表。
-        // 传错的话内容页会一直留到视图被 hidden，主页淡入途中直接透出来。
-        const activeBody = previous.view === 'chapter' ? detailBox : refs.chaptersBody;
+        // 回主页时，当前显示的可能不是章节列表：内容页是 detailBox，
+        // 可视化页是 vizBox。传错的话那个主体会一直留到视图被 hidden，
+        // 主页淡入途中直接透出来。
+        const activeBody =
+          previous.view === 'viz'
+            ? vizBox
+            : previous.view === 'chapter'
+              ? detailBox
+              : refs.chaptersBody;
+
         await leaveChapters(refs, activeBody);
+
+        // 离开可视化页时把实例销毁：它可能挂着 rAF 循环（播放中），
+        // 不销毁会一直在后台空转。DOM 已经在淡出之后，这里清空不会闪。
+        // 顺手把 hidden 收回去 —— 不依赖「下次进章节页时 showOnly 会修正」。
+        if (previous.view === 'viz') {
+          disposeViz();
+          vizBox.hidden = true;
+        }
+
         document.body.dataset.route = 'home';
       }
     } finally {
