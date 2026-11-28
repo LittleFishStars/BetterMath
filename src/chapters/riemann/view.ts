@@ -408,8 +408,13 @@ export class RiemannView {
 
     this.nRange.addEventListener('input', () => {
       this.nIndex = Number(this.nRange.value);
-      this.nLabel.textContent = String(N_STEPS[this.nIndex]);
-      this.update(this.t);
+      // 拖滑动条却没到关键帧 2 时，图上还看不出分割 —— 直接把进度推过去，
+      // 否则「改了 n 却没反应」。正在播放时不打断，让它自然推进。
+      if (!this.playing && this.t < T_KF_PANEL) {
+        this.setT(T_KF_PANEL);
+      } else {
+        this.update(this.t);
+      }
     });
 
     this.playBtn.addEventListener('click', () => {
@@ -584,13 +589,27 @@ export class RiemannView {
     this.tickLayer.replaceChildren(ticks);
   }
 
-  /** 量出每个关键帧圆点应该落在轨道的哪一像素 */
+  /**
+   * 量出每个关键帧圆点应该落在轨道的哪一像素。
+   *
+   * 中间的圆点放在**断口正中**（前一段右边缘与后一段左边缘的中点）——
+   * 直接对齐某一段的边缘会整个压在那一小截胶囊上，看起来像没对齐；
+   * 落在 7px 的缝里，才读得出「这里是两段的分界」。
+   */
   private measureMarks(): void {
     const segments = [...this.root.querySelectorAll<HTMLElement>('.viz__segment')];
     if (segments.length === 0) return;
-    // offsetParent 是 .viz__track（它设了 position: relative），
-    // 所以 offsetLeft 正好是相对轨道的左边缘
-    const positions = segments.map((seg) => seg.offsetLeft);
+
+    // offsetParent 是 .viz__track（position: relative），offsetLeft 即相对轨道左缘
+    const positions: number[] = [segments[0].offsetLeft];
+
+    for (let i = 1; i < segments.length; i += 1) {
+      const prev = segments[i - 1];
+      const prevRight = prev.offsetLeft + prev.offsetWidth;
+      const nextLeft = segments[i].offsetLeft;
+      positions.push(prevRight + (nextLeft - prevRight) / 2);
+    }
+
     const last = segments[segments.length - 1];
     positions.push(last.offsetLeft + last.offsetWidth);
     this.markPositions = positions;
@@ -655,6 +674,11 @@ export class RiemannView {
     this.explain.style.opacity = String(panelB);
     this.explain.style.transform = `translateY(${((1 - panelB) * 12).toFixed(1)}px)`;
     this.explain.style.pointerEvents = panelB < 0.5 ? 'none' : 'auto';
+
+    // 标签跟着「当前实际画出的 n」走，而不是滑动条上的设定值。
+    // 之前只显示设定值：进度条停在关键帧 2 之前时图上只有 5 段、
+    // 标签却写着 8，看起来像算错了。
+    this.nLabel.textContent = String(n);
 
     // 三个面积值
     const lower = lowerSum(n);

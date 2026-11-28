@@ -1202,7 +1202,7 @@
 .viz__segments {
   display: flex;
   gap: 7px;
-  height: 8px;
+  height: 11px;
 }
 
 .viz__segment {
