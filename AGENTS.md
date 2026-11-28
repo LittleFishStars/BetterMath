@@ -1,9 +1,26 @@
 # BetterMath 可视化制作指南
 
-> 这份文档写给**用 AI 创作可视化页面的贡献者**。
-> 目标：让任何人（配合任意 AI）产出的可视化页，和现有的「定积分与黎曼和」看起来是同一个网站。
+> 这份文档写给**用 AI 创作可视化页面的人**——无论是贡献者还是维护者。
+> 目标：让任何人产出的可视化页，和现有的「定积分与黎曼和」看起来是同一个网站。
 >
 > 如果你是要改首页、章节列表、路由这些基础设施，这份文档只覆盖了一部分，请直接读源码。
+
+---
+
+## 0. 先分清你是哪一种
+
+**这决定了你能做什么、该怎么提交。**
+
+| | 贡献者 | 维护者 |
+| --- | --- | --- |
+| 是谁 | 想加可视化页的外部开发者 | 仓库所有者 |
+| 权限 | **只能提 PR**，不推 `main` | 可直接推 `main`、可部署 |
+| 流程 | 拉分支 → 开发 → 提 PR | 审 PR → 合并 → 部署 |
+| 部署 | **不做**（维护者合并后代跑） | 负责 |
+| 必读 | 全文；第 12.1 节是提交方式 | 全文；第 12.2 节是审阅与部署 |
+
+> **贡献者注意**：即使你在 GitHub 上有 `main` 的写权限，也**不要直接推**。
+> 走分支 + PR，维护者才能在你合并前跑一遍验收。
 
 ---
 
@@ -26,6 +43,24 @@
 ---
 
 ## 2. 一分钟上手
+
+### 取代码
+
+```bash
+# 贡献者：fork 之后 clone 你自己的 fork（或直接 clone 上游，见下）
+git clone https://github.com/<你的账号>/BetterMath.git
+cd BetterMath
+git switch -c viz/<slug>        # 从最新的 main 拉分支，见第 12.1 节
+
+# 维护者
+git clone https://github.com/LittleFishStars/BetterMath.git
+cd BetterMath
+```
+
+> 只 clone 上游、不 fork 也可以开发；但提 PR 时需要你的改动在一个能推的分支上，
+> 所以实际做法是 fork 一份、clone fork、在那里拉分支。
+
+### 跑起来
 
 ```bash
 npm install --cache ./.tmp/npm-cache   # 本机 npm 默认缓存路径有问题，必须指定
@@ -502,7 +537,7 @@ function makeRandom(seed: number): () => number {
 
 ## 11. 验收清单
 
-提交前逐项过一遍：
+**贡献者在提 PR 前逐项过一遍**，维护者审 PR 时也会照着核对。
 
 ### 功能
 
@@ -546,9 +581,70 @@ function makeRandom(seed: number): () => number {
 
 ---
 
-## 12. 提交与部署
+## 12. 提交：贡献者走 PR，维护者走部署
+
+### 12.1 贡献者：分支 + PR
+
+**不要直接推 `main`。** 即使你在 GitHub 上有写权限——走 PR，维护者才能在合并前跑一遍验收。
 
 ```bash
+# 1. 同步最新的 main，拉一个分支
+git switch main && git pull
+git switch -c viz/<slug>
+
+# 2. 开发，然后自检（第 11 节的清单）
+npm run build                  # 必须通过，含 tsc --noEmit
+
+# 3. 提交
+git add -A
+git commit -m "feat: 新增 <主题> 可视化"
+git push origin viz/<slug>
+
+# 4. 到 GitHub 开 PR，目标分支 main
+```
+
+**分支命名**：
+
+| 类型 | 格式 | 例子 |
+| --- | --- | --- |
+| 新可视化 | `viz/<slug>` | `viz/taylor` |
+| 修 bug | `fix/<简述>` | `fix/label-overlap` |
+| 改文档 | `docs/<简述>` | `docs/deploy-notes` |
+| 重构 | `refactor/<简述>` | `refactor/split-timeline` |
+
+`<slug>` 用小写字母、数字、连字符，和 `src/viz/<slug>/` 目录名、`registry.ts` 里的键保持一致。
+
+**commit 前缀**沿用现有的：`feat:` / `fix:` / `refactor:` / `docs:` / `chore:`。
+
+**PR 描述里必须写**：
+
+1. 这个可视化要讲清楚的道理（一句话）
+2. 五幕各是什么
+3. 关键帧截图——至少第 1 幕（笨办法）和第 4 幕（结论）
+4. 第 11 节验收清单的勾选情况
+5. 主包体积有没有变化（`npm run build` 会打印，基线 JS 51 KB / gzip 17 KB）
+
+**贡献者不要做的事**：
+
+- ❌ 不要跑 `scripts/deploy.sh`（会直接改线上）
+- ❌ 不要动 `main` 分支
+- ❌ 不要改 `scripts/deploy.sh` 里的服务器地址
+- ❌ 不要引入运行时依赖（要引先开 issue 讨论）
+
+### 12.2 维护者：审阅与部署
+
+**审 PR 至少做三件事**：
+
+1. **本地跑一遍**：`git switch <分支> && npm run dev`，五个关键帧逐一点过去，拖一遍进度条
+2. **看体积**：`npm run build`，对比基线。涨得离谱要问原因（比如有人偷偷引了 Three.js 进主包）
+3. **看风格**：对照第 6 节——有没有画框、有没有非蓝色、动效是不是太花
+
+三项都过再合并。
+
+**合并后部署**：
+
+```bash
+git switch main && git pull
 npm run build                # 构建 + 类型检查
 bash scripts/deploy.sh       # 构建 → 产物检查 → rsync 到服务器 → 健康检查
 ```
@@ -561,6 +657,9 @@ bash scripts/deploy.sh       # 构建 → 产物检查 → rsync 到服务器 �
 5. 用 `--resolve` 绕过 Cloudflare 打源站，检查首页、`/chapters`、各内容页返回 200
 
 **新增了路由就要更新自检列表**（`scripts/deploy.sh` 里的 `for route in ...`），否则线上 404 不会被发现。
+
+> 这一条是维护者的责任：PR 里加了新可视化，`deploy.sh` 的自检数组要跟着加一条
+> `/chapters/<章节>/<内容>`，否则部署成功但页面 404，健康检查也发现不了。
 
 ---
 
@@ -588,7 +687,9 @@ bash scripts/deploy.sh       # 构建 → 产物检查 → rsync 到服务器 �
 - 不引入任何运行时依赖
 - 每帧状态由 update(t) 连续插值，不要为中间态写特例
 
-交付前跑完 AGENTS.md 第 11 节的验收清单。
+交付要求：
+- 在一个新分支上提交，不要推 main（见 AGENTS.md 第 12.1 节）
+- 跑完 AGENTS.md 第 11 节的验收清单，逐条如实勾选
 ```
 
 ---
@@ -605,4 +706,6 @@ bash scripts/deploy.sh       # 构建 → 产物检查 → rsync 到服务器 �
 | 注册可视化 | `src/viz/registry.ts` |
 | 内容条目 | `src/chapters/data.ts` |
 | 路由 | `src/chapters/router.ts` |
-| 部署 | `scripts/deploy.sh` |
+| 部署 | `scripts/deploy.sh`（**仅维护者**） |
+
+**提 PR 前**：确认你的分支名符合第 12.1 节的规范，PR 描述里带上了关键帧截图和验收清单。
