@@ -31,11 +31,11 @@ import {
   GOOD_SPAN,
   GOOD_Y_MAX,
   fmt,
-  fmtBound,
   good,
   goodBounds,
   goodLower,
   goodUpper,
+  minNForGap,
   unbounded,
 } from './math';
 
@@ -89,12 +89,34 @@ const T_AB_START = T_KF_DIRICHLET - CROSSFADE;
 const T_BC_START = T_KF_UNBOUNDED - CROSSFADE;
 const T_CD_START = T_KF_CONCLUDE - CROSSFADE;
 
-// ── 场景一内部：分割加细 ──
-const T_A_SPLIT_START = 0.2;
-const T_A_SPLIT_END = 0.4;
+/**
+ * ε 的取值范围。
+ *
+ * 用对数刻度：从 0.5 拖到 0.005，滑块的等长位移对应 ε 的等比例缩小 ——
+ * 线性刻度下前 90% 的行程都在「差一点点」，感受不到量级变化。
+ */
+const EPS_MAX = 0.5;
+const EPS_MIN = 0.005;
+const EPS_SLIDER_STEPS = 1000;
 
-/** 场景一最终分割数：再大就看不清矩形边界了 */
-const A_N_MAX = 24;
+/** 图形上最多画这么多段；计算允许更大，超出的只在文字里报数 */
+const A_N_DRAW_CAP = 128;
+
+// 滑块往右 = ε 更小 = 要求更严。方向反过来的话，读者会以为拖到头就「更宽松」。
+const sliderToEps = (value: number): number =>
+  EPS_MAX * (EPS_MIN / EPS_MAX) ** (value / EPS_SLIDER_STEPS);
+
+const epsToSlider = (eps: number): number =>
+  Math.round(
+    (Math.log(eps / EPS_MAX) / Math.log(EPS_MIN / EPS_MAX)) * EPS_SLIDER_STEPS,
+  );
+
+/** ε 的显示：太小的小数用科学计数不好读，统一保留三位有效数字 */
+function fmtEps(eps: number): string {
+  if (eps >= 0.1) return eps.toFixed(3);
+  if (eps >= 0.01) return eps.toFixed(4);
+  return eps.toFixed(4);
+}
 
 /** 场景二固定用 6 段 —— 要能看清每段里「上下两排点都在」 */
 const B_N = 6;
@@ -161,16 +183,28 @@ export function createIntegrabilityViz(): VizPart {
   let upperValue: HTMLElement;
   let lowerValue: HTMLElement;
   let gapValue: HTMLElement;
-  let gapFill: HTMLElement;
   let metricLabel: HTMLElement;
   let metricNote: HTMLElement;
 
   let drawnN = -1;
 
-  /** 场景一当前分割数：从 1 长到 A_N_MAX */
-  const aN = (t: number): number => {
-    const p = smoothstep(T_A_SPLIT_START, T_A_SPLIT_END, t);
-    return Math.max(1, Math.round(1 + (A_N_MAX - 1) * p));
+  /** 用户当前设定的 ε（允许的上下和差距） */
+  let eps = 0.1;
+  let epsRange: HTMLInputElement;
+  let epsValue: HTMLElement;
+  let nValue: HTMLElement;
+
+  /**
+   * 场景一当前该画多少段。
+   *
+   * 「问题」那一幕固定 1 个矩形 —— 夹层最厚，问题最直观。
+   * 进入「判据」之后改由 ε 决定：用户拖 ε，n 跟着变，
+   * 这正是「无论要多小，总能报出一个 n」的操作版。
+   */
+  const nForDisplay = (t: number): number => {
+    if (t < T_KF_JUDGE) return 1;
+    const found = minNForGap(eps);
+    return Math.min(A_N_DRAW_CAP, found ?? A_N_DRAW_CAP);
   };
 
   /** 重画场景一的矩形与夹层 */
@@ -239,8 +273,14 @@ export function createIntegrabilityViz(): VizPart {
     keyframes: KEYFRAMES,
     intro: INTRO,
 
-    // 这里先不挂 deeper：下一节「牛顿-莱布尼茨公式」还没做，
-    // 挂上去只会得到一个点了没反应的按钮。等那一节写好了再加一行。
+    /**
+     * 进入每一幕时自动暂停。
+     *
+     * 这一部分的核心是「自己动手调 ε 感受一下」，自动播过去等于白讲：
+     * 用户还没来得及拖滑块，画面已经切走了。所以判据、两个反例各停一次，
+     * 等用户点播放再继续。
+     */
+    pauseAt: [T_KF_JUDGE, T_KF_DIRICHLET, T_KF_UNBOUNDED],
 
     mountFigure(host: HTMLElement): void {
       const svg = el('svg', {
@@ -308,12 +348,18 @@ export function createIntegrabilityViz(): VizPart {
       host.append(svg);
     },
 
-    mountPanel(host: HTMLElement, _ctx: VizContext): void {
+    mountPanel(host: HTMLElement, ctx: VizContext): void {
       panelEl = h('div', { class: 'viz__panel-a' });
       panelEl.innerHTML = `
-        <p class="viz__metric-label">上和 − 下和</p>
-        <p class="viz__metric-value" data-metric="gap">—</p>
-        <div class="viz__error-track"><div class="viz__error-fill" data-metric="fill"></div></div>
+        <label class="viz__n-label" for="viz-eps">允许的差距 ε</label>
+        <div class="viz__n-row">
+          <input class="viz__n-range" id="viz-eps" type="range"
+                 min="0" max="${EPS_SLIDER_STEPS}" step="1" value="${epsToSlider(eps)}">
+          <output class="viz__eps-value" for="viz-eps">${fmtEps(eps)}</output>
+        </div>
+
+        <p class="viz__metric-label">需要分割数 n</p>
+        <p class="viz__metric-value" data-metric="n">—</p>
         <p class="viz__metric-note" data-metric="note"></p>
 
         <dl class="viz__sums">
@@ -323,21 +369,34 @@ export function createIntegrabilityViz(): VizPart {
           <div class="viz__sum viz__sum--lower">
             <dt>下和</dt><dd class="viz__sum-value" data-sum="lower">—</dd>
           </div>
+          <div class="viz__sum viz__sum--exact">
+            <dt>差</dt><dd class="viz__sum-value" data-sum="gap">—</dd>
+          </div>
         </dl>
       `;
       host.append(panelEl);
 
-      upperValue = panelEl.querySelector('[data-sum="upper"]') as HTMLElement;
-      lowerValue = panelEl.querySelector('[data-sum="lower"]') as HTMLElement;
-      gapValue = panelEl.querySelector('[data-metric="gap"]') as HTMLElement;
-      gapFill = panelEl.querySelector('[data-metric="fill"]') as HTMLElement;
+      epsRange = panelEl.querySelector('#viz-eps') as HTMLInputElement;
+      epsValue = panelEl.querySelector('.viz__eps-value') as HTMLElement;
+      nValue = panelEl.querySelector('[data-metric="n"]') as HTMLElement;
       metricLabel = panelEl.querySelector('.viz__metric-label') as HTMLElement;
       metricNote = panelEl.querySelector('[data-metric="note"]') as HTMLElement;
+      upperValue = panelEl.querySelector('[data-sum="upper"]') as HTMLElement;
+      lowerValue = panelEl.querySelector('[data-sum="lower"]') as HTMLElement;
+      gapValue = panelEl.querySelector('[data-sum="gap"]') as HTMLElement;
+
+      epsRange.addEventListener('input', () => {
+        eps = sliderToEps(Number(epsRange.value));
+        epsValue.textContent = fmtEps(eps);
+        // n 会变，图必须重画；用当前进度原地刷一帧即可
+        drawnN = -1;
+        ctx.setProgress(ctx.progress);
+      });
     },
 
     update(t: number): void {
       // ── 场景一 ──
-      const n = aN(t);
+      const n = nForDisplay(t);
       if (n !== drawnN) redrawA(n);
 
       const aOpacity =
@@ -368,51 +427,56 @@ export function createIntegrabilityViz(): VizPart {
       // 留着那对 L 形轴线和卡片抢视线，所以跟着淡出。
       axesLayer.style.opacity = String(Math.max(aOpacity, cOpacity));
 
-      // ── 面板：跟着当前场景换指标 ──
+      // ── 面板：ε 滑块始终在，下面的读数随场景变 ──
       const panelOpacity = smoothstep(0.06, 0.18, t);
       panelEl.style.opacity = String(panelOpacity);
-      panelEl.style.pointerEvents = 'none';
+      // 滑块要能拖，不能像纯展示面板那样关掉 pointer-events
+      panelEl.style.pointerEvents = panelOpacity < 0.5 ? 'none' : 'auto';
+      epsValue.textContent = fmtEps(eps);
 
       if (t < T_KF_DIRICHLET) {
-        // 场景一：真实的上下和，夹层随 n 收缩
-        const lower = goodLower(n);
-        const upper = goodUpper(n);
-        const gap = upper - lower;
-        const ratio = gap / Math.max(upper, 1e-6);
-        metricLabel.textContent = '上和 − 下和';
-        gapValue.textContent = fmt(gap);
-        gapFill.style.width = `${Math.min(100, ratio * 100 * 3).toFixed(1)}%`;
-        metricNote.textContent = n <= 1 ? '只有一段，夹层最厚' : `n = ${n}，夹层在缩小`;
+        // 场景一：能积。给定 ε，报出需要的 n —— 这就是「总能达到」
+        const need = minNForGap(eps);
+        // 数字按**真实需要的 n** 算，不是图上画的那 128 段 ——
+        // 否则会出现「n = 804 但实际差 0.031 > ε」这种自相矛盾的读数
+        const calcN = need ?? A_N_DRAW_CAP;
+        const lower = goodLower(calcN);
+        const upper = goodUpper(calcN);
+        metricLabel.textContent = '需要分割数 n';
+        nValue.textContent = need === null ? '找不到' : String(need);
+        metricNote.textContent =
+          need === null
+            ? 'ε 太小，n 到上限仍不满足'
+            : calcN > A_N_DRAW_CAP
+              ? `实际差 ${fmtEps(upper - lower)} ≤ ε ✓（图上按 ${A_N_DRAW_CAP} 段画）`
+              : `实际差 ${fmtEps(upper - lower)} ≤ ε ✓`;
         upperValue.textContent = fmt(upper);
         lowerValue.textContent = fmt(lower);
-        gapFill.classList.remove('is-tight');
+        gapValue.textContent = fmtEps(upper - lower);
       } else if (t < T_KF_UNBOUNDED) {
-        // 场景二：狄利克雷，差值恒为 1，与 n 无关
-        metricLabel.textContent = '上和 − 下和';
-        gapValue.textContent = fmt(DIRICHLET_GAP);
-        gapFill.style.width = '100%';
-        metricNote.textContent = '与分割数无关，恒等于区间长度';
+        // 场景二：处处不连续的那个反例 —— 差恒为 1，ε 再大也没用
+        metricLabel.textContent = '需要分割数 n';
+        nValue.textContent = '找不到';
+        metricNote.textContent = '差恒等于 1，无论 n 多大都 > ε ✗';
         upperValue.textContent = fmt(DIRICHLET_UPPER);
         lowerValue.textContent = fmt(DIRICHLET_LOWER);
-        gapFill.classList.remove('is-tight');
+        gapValue.textContent = fmt(DIRICHLET_GAP);
       } else if (t < T_KF_CONCLUDE) {
-        // 场景三：无界，上和不存在
-        metricLabel.textContent = '上确界 M';
-        gapValue.textContent = fmtBound(Number.POSITIVE_INFINITY);
-        gapFill.style.width = '100%';
+        // 场景三：无界 —— 连上和都没有有限值
+        metricLabel.textContent = '需要分割数 n';
+        nValue.textContent = '不存在';
         metricNote.textContent = 'x → 0⁺ 时 1/√x → ∞，上和没有有限值';
         upperValue.textContent = '∞';
         lowerValue.textContent = '不存在';
-        gapFill.classList.remove('is-tight');
+        gapValue.textContent = '—';
       } else {
         // 场景四：判据
         metricLabel.textContent = '可积的判据';
-        gapValue.textContent = '有界 + 零测';
-        gapFill.style.width = '0%';
+        nValue.textContent = '有界 + 零测';
         metricNote.textContent = '间断点集的测度必须为 0';
         upperValue.textContent = '—';
         lowerValue.textContent = '—';
-        gapFill.classList.add('is-tight');
+        gapValue.textContent = '—';
       }
     },
 

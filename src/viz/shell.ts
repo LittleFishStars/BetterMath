@@ -126,6 +126,7 @@ export class VizShell {
       const timeline = new Timeline({
         segments: part.segments,
         keyframes: part.keyframes,
+        pauseAt: part.pauseAt,
         // 每个部分只更新自己那一份，切走的那个不碰 DOM
         onProgress: (t) => this.render(index, t),
       });

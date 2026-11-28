@@ -24,6 +24,13 @@ export interface TimelineOptions {
   segments: readonly VizSegment[];
   /** 关键帧的内部进度，决定圆点位置 */
   keyframes: readonly number[];
+  /**
+   * 播放到这里自动停下，等用户手动继续。
+   *
+   * 用在「这一幕要你自己动手感受」的地方：进度走到该幕的起点就暂停，
+   * 把控制权交回去。拖动、点关键帧不受影响 —— 只有播放会被拦。
+   */
+  pauseAt?: readonly number[] | undefined;
   /** 进度变化（拖动 / 播放 / 跳转都会触发） */
   onProgress: (t: number) => void;
 }
@@ -39,6 +46,7 @@ export class Timeline {
 
   private readonly segments: readonly VizSegment[];
   private readonly keyframes: readonly number[];
+  private readonly pauseAt: readonly number[];
   private readonly onProgress: (t: number) => void;
 
   private t = 0;
@@ -63,6 +71,7 @@ export class Timeline {
   constructor(options: TimelineOptions) {
     this.segments = options.segments;
     this.keyframes = options.keyframes;
+    this.pauseAt = [...(options.pauseAt ?? [])].sort((a, b) => a - b);
     this.onProgress = options.onProgress;
     this.totalSeconds = options.segments.reduce((sum, s) => sum + s.seconds, 0);
 
@@ -276,8 +285,21 @@ export class Timeline {
       if (!this.playing) return;
       const dt = Math.min(64, now - this.lastFrame); // 切后台回来别一下跳完
       this.lastFrame = now;
+      const before = this.t;
       const seconds = this.tToTime(this.t) + (dt / 1000) * SPEEDS[this.speedIndex];
       this.t = seconds >= this.totalSeconds ? 1 : this.timeToT(seconds);
+
+      // 跨过某个暂停点就停在该点，把控制权交回用户。
+      // 用「before < p <= t」判断，暂停后再点播放不会立刻又停（before 已等于 p）。
+      const pause = this.pauseAt.find((p) => before < p && this.t >= p);
+      if (pause !== undefined) {
+        this.t = pause;
+        this.paintTrack();
+        this.onProgress(this.t);
+        this.stop();
+        return;
+      }
+
       this.paintTrack();
       this.onProgress(this.t);
       if (this.t >= 1) {

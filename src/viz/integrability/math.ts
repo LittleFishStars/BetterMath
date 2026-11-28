@@ -47,8 +47,17 @@ export interface GoodInterval {
   max: number;
 }
 
-/** 每个小区间上的最小 / 最大值（采样 16 点，够用） */
+/**
+ * 每个小区间上的最小 / 最大值（采样 16 点，够用）。
+ *
+ * 带缓存：用户拖 ε 时 minNForGap 会反复查同一个 n，
+ * 每次重算 16n 个点纯属浪费。
+ */
+const boundsCache = new Map<number, GoodInterval[]>();
+
 export function goodBounds(n: number): GoodInterval[] {
+  const hit = boundsCache.get(n);
+  if (hit) return hit;
   const points = uniformPartition(n);
   const out: GoodInterval[] = [];
   for (let i = 0; i < points.length - 1; i += 1) {
@@ -63,6 +72,7 @@ export function goodBounds(n: number): GoodInterval[] {
     }
     out.push({ x0, x1, min, max });
   }
+  boundsCache.set(n, out);
   return out;
 }
 
@@ -81,8 +91,38 @@ export function goodUpper(n: number): number {
  *
  * 可积的达布判据就是「这个差能任意小」。
  */
+const gapCache = new Map<number, number>();
+
 export function goodGap(n: number): number {
-  return goodUpper(n) - goodLower(n);
+  const hit = gapCache.get(n);
+  if (hit !== undefined) return hit;
+  const value = goodUpper(n) - goodLower(n);
+  gapCache.set(n, value);
+  return value;
+}
+
+/**
+ * 找到最小的分割数 n，使上和与下和的差小于 ε。
+ *
+ * 这就是「可积」那句话的操作版：给定任意小的 ε，总能报出一个 n。
+ * 先倍增定出上界，再在 [n/2, n] 里二分 —— 倍增保证不会线性扫过几千个 n，
+ * 二分让报出来的 n 是真正的最小值，而不是 2 的幂里最接近的那个。
+ *
+ * 找不到（n 到 nMax 还不够）返回 null —— 对狄利克雷这类函数
+ * 无论 n 多大都返回 null，那正是它不可积的表现。
+ */
+export function minNForGap(eps: number, nMax = 1024): number | null {
+  let hi = 1;
+  while (hi <= nMax && goodGap(hi) >= eps) hi *= 2;
+  if (hi > nMax) return null;
+
+  let lo = Math.max(1, Math.floor(hi / 2));
+  while (lo < hi) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (goodGap(mid) < eps) hi = mid;
+    else lo = mid + 1;
+  }
+  return lo;
 }
 
 /** 分割数上限 */
