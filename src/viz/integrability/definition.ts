@@ -71,9 +71,10 @@ const KEYFRAMES = [0, 0.18, 0.45, 0.68, 0.86, 1] as const;
 // ── 场景切换的时间边界 ──
 //
 // 关键帧（0 / 0.18 / 0.45 / 0.68 / 0.86 / 1）既是段边界，也是场景切换点。
-// 交叉淡化安排在「边界前 CROSSFADE 处开始、到边界正好完成」：
-// 点关键帧看到的一定是干净的单场景画面，而不是两张图各半透明叠在一起。
-const CROSSFADE = 0.06;
+// 交叉淡化一律安排在「这一幕演完（= 段边界 = 暂停点）之后」才开始：
+// 暂停那一刻画面上必须是上一幕的完整结果，不能已经淡成一半。
+// 时长 0.05 不足一段的 1/10，播放时感觉是瞬时切换。
+const CROSSFADE = 0.05;
 
 const T_KF_JUDGE = 0.18;
 const T_KF_DIRICHLET = 0.45;
@@ -85,18 +86,20 @@ const T_A_IN_START = 0.02;
 const T_A_IN_END = 0.12;
 
 /**
- * 场景一 → 二 的交叉**从关键帧 0.45 才开始**，到 0.5 完成。
+ * 三处交叉淡化的起点都是**暂停点本身**，终点在它之后 CROSSFADE 处。
  *
- * 别处都是「边界前开始、边界处完成」，唯独这里要反过来：
- * 「判据」讲完要停在 0.45 让用户调 ε，那一刻画面上必须是场景一的完整结果，
- * 不能已经淡成一半。所以把切换整体挪到暂停点之后。
+ * 为什么不是「边界前开始、边界处完成」：那样暂停时画面已经淡成一半，
+ * 而且进度条那一段只走了 (边界 − CROSSFADE) 的比例，看起来像「没演完就停了」。
+ * 挪到暂停点之后，停下时进度条正好走满这一段，画面也还是这一幕的完整结果。
  */
 const T_AB_START = T_KF_DIRICHLET;
-const T_AB_END = T_KF_DIRICHLET + 0.05;
+const T_AB_END = T_KF_DIRICHLET + CROSSFADE;
 
-/** 其余两处仍按「边界前开始、边界处完成」 */
-const T_BC_START = T_KF_UNBOUNDED - CROSSFADE;
-const T_CD_START = T_KF_CONCLUDE - CROSSFADE;
+const T_BC_START = T_KF_UNBOUNDED;
+const T_BC_END = T_KF_UNBOUNDED + CROSSFADE;
+
+const T_CD_START = T_KF_CONCLUDE;
+const T_CD_END = T_KF_CONCLUDE + CROSSFADE;
 
 /**
  * ε 的取值范围。
@@ -270,13 +273,13 @@ export function createIntegrabilityViz(): VizPart {
         '即 $\\overline{\\int} f=\\underline{\\int} f$。'
       );
     }
-    if (t < T_KF_UNBOUNDED) {
+    if (t < T_BC_END) {
       return (
         '狄利克雷函数：有理点取 1、无理点取 0。' +
         '任何区间里两种点都稠密，所以 $U-L\\equiv 1$。'
       );
     }
-    if (t < T_KF_CONCLUDE) {
+    if (t < T_CD_END) {
       return '换成 $1/\\sqrt{x}$：它在 0 附近无界，上和 $M_i$ 根本没有有限值。';
     }
     return '有界 + 间断点集零测，才是可积。间断点「多」不等于「测度大」。';
@@ -293,13 +296,13 @@ export function createIntegrabilityViz(): VizPart {
      * 这一部分的核心是「自己动手调 ε 感受一下」，自动播过去等于白讲：
      * 用户还没来得及拖滑块，画面已经切走了。
      *
-     * 注意暂停点不等于关键帧：
-     *   · 关键帧 = 这一幕的**开始**（点它跳过去看这一幕的内容）
-     *   · 暂停点 = 这一幕**演完、下一幕还没淡入**的那一刻
-     * 所以后两个点取的是交叉淡化的起点（T_BC_START / T_CD_START），
-     * 那里前一幕还是完整的，画面正好停在它的结论上。
+     * 暂停点 = 每一幕的结尾 = 关键帧去掉首尾。
+     * 不从字面量手写：改了 SEGMENTS 却忘了同步这里，就会退回「某一幕不停」的旧毛病。
+     * 最后一幕不留暂停点 —— 播到 1 本来就是终点，再停一次是多余的。
+     *
+     * 暂停时进度条那一段正好走满，交叉淡化要等按下播放才开始（见上面的 T_*_START）。
      */
-    pauseAt: [T_KF_DIRICHLET, T_BC_START, T_CD_START],
+    pauseAt: KEYFRAMES.slice(1, -1),
 
     mountFigure(host: HTMLElement): void {
       const svg = el('svg', {
@@ -429,16 +432,16 @@ export function createIntegrabilityViz(): VizPart {
 
       // ── 场景二 ──
       const bOpacity =
-        smoothstep(T_AB_START, T_AB_END, t) * (1 - smoothstep(T_BC_START, T_KF_UNBOUNDED, t));
+        smoothstep(T_AB_START, T_AB_END, t) * (1 - smoothstep(T_BC_START, T_BC_END, t));
       sceneB.style.opacity = String(bOpacity);
 
       // ── 场景三 ──
       const cOpacity =
-        smoothstep(T_BC_START, T_KF_UNBOUNDED, t) * (1 - smoothstep(T_CD_START, T_KF_CONCLUDE, t));
+        smoothstep(T_BC_START, T_BC_END, t) * (1 - smoothstep(T_CD_START, T_CD_END, t));
       sceneC.style.opacity = String(cOpacity);
 
       // ── 场景四 ──
-      const dOpacity = smoothstep(T_CD_START, T_KF_CONCLUDE, t);
+      const dOpacity = smoothstep(T_CD_START, T_CD_END, t);
       sceneD.style.opacity = String(dOpacity);
 
       // 坐标轴只属于场景一（f 的曲线）和场景三（1/√x）。
@@ -474,7 +477,7 @@ export function createIntegrabilityViz(): VizPart {
         upperValue.textContent = fmt(upper);
         lowerValue.textContent = fmt(lower);
         gapValue.textContent = fmtEps(upper - lower);
-      } else if (t < T_KF_UNBOUNDED) {
+      } else if (t < T_BC_END) {
         // 场景二：处处不连续的那个反例 —— 差恒为 1，ε 再大也没用
         metricLabel.textContent = '需要分割数 n';
         nValue.textContent = '找不到';
@@ -482,7 +485,7 @@ export function createIntegrabilityViz(): VizPart {
         upperValue.textContent = fmt(DIRICHLET_UPPER);
         lowerValue.textContent = fmt(DIRICHLET_LOWER);
         gapValue.textContent = fmt(DIRICHLET_GAP);
-      } else if (t < T_KF_CONCLUDE) {
+      } else if (t < T_CD_END) {
         // 场景三：无界 —— 连上和都没有有限值
         metricLabel.textContent = '需要分割数 n';
         nValue.textContent = '不存在';
