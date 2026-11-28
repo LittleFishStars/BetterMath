@@ -216,11 +216,5 @@ export const CHAPTER_CONTENTS: Readonly<Record<string, readonly ContentItem[]>> 
       description: '用矩形分割逼近曲边梯形的面积',
       visual: 'riemann',
     },
-    {
-      id: 'integrability',
-      title: '函数可积的定义',
-      description: '达布判据，以及两种让判据失效的函数',
-      visual: 'integrability',
-    },
   ],
 };

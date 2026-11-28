@@ -24,6 +24,7 @@ import {
   upperSum,
 } from './math';
 import { el, h, scale, smoothstep } from '../svg';
+import { createIntegrabilityViz } from '../integrability/definition';
 import type { VizContext, VizDefinition } from '../types';
 import type { VizSegment } from '../timeline';
 
@@ -35,14 +36,33 @@ const VIEW_H = 420;
 const xToPx = scale([0, A], [PLOT.left, PLOT.right]);
 const yToPx = scale([0, Y_MAX], [PLOT.bottom, PLOT.top]);
 
+/**
+ * 这一节分两个部分，共用一条进度条：
+ *
+ *   第一部分 [0, PART_SPLIT)   黎曼和 —— 用矩形逼近面积
+ *   第二部分 [PART_SPLIT, 1]   可积性 —— 这个逼近什么时候真的收敛
+ *
+ * 两部分各自的实现仍按 0..1 写（本文件的 currentN / integrability 那边
+ * 的 update 都只认本地进度），这里负责把全局进度切成两段分别喂进去。
+ * 这样两边的节奏常量都不用跟着改，改分段也不会牵一发动全身。
+ */
+const PART_SPLIT = 0.55;
+
 const SEGMENTS: readonly VizSegment[] = [
-  { tFrom: 0, tTo: 0.2, seconds: 2.2 },
-  { tFrom: 0.2, tTo: 0.62, seconds: 4.2 },
-  { tFrom: 0.62, tTo: 0.8, seconds: 2.2 },
-  { tFrom: 0.8, tTo: 1, seconds: 3.2 },
+  // 第一部分：本地 [0,1] 压到 [0, 0.55]
+  { tFrom: 0, tTo: 0.11, seconds: 2.2 },
+  { tFrom: 0.11, tTo: 0.341, seconds: 4.2 },
+  { tFrom: 0.341, tTo: 0.44, seconds: 2.2 },
+  { tFrom: 0.44, tTo: 0.55, seconds: 3.2 },
+  // 第二部分：本地 [0,1] 映射到 [0.55, 1]
+  { tFrom: 0.55, tTo: 0.631, seconds: 3.2 },
+  { tFrom: 0.631, tTo: 0.7525, seconds: 5.4 },
+  { tFrom: 0.7525, tTo: 0.856, seconds: 5.0 },
+  { tFrom: 0.856, tTo: 0.937, seconds: 4.2 },
+  { tFrom: 0.937, tTo: 1, seconds: 4.6 },
 ];
 
-const KEYFRAMES = [0, 0.2, 0.62, 0.8, 1] as const;
+const KEYFRAMES = [0, 0.11, 0.341, 0.44, 0.55, 0.631, 0.7525, 0.856, 0.937, 1] as const;
 
 // ── 阶段边界 ──
 const T_CURVE_IN_START = 0.06;
@@ -121,6 +141,26 @@ export function createRiemannViz(): VizDefinition {
   let userN = N_FINE;
   let drawnN = -1;
   let panelEl: HTMLElement;
+
+  // ── 同一节的两个部分 ──
+  // 第二部分直接复用 integrability 那套实现，各自持有自己的 <svg> 与面板，
+  // 由 update 按进度整体切换 —— 两部分的坐标系不同，不能画在同一张图上。
+  const part2 = createIntegrabilityViz();
+
+  /**
+   * 全局进度 → 第二部分的本地进度。
+   *
+   * 必须做一次舍入：关键帧 0.7525 反推本地是 0.4499999999999999，
+   * 差那么一点点就会落进「上一幕」的分支，指标和说明文字全错位
+   * （狄利克雷那一幕显示成 0.167、无界那一幕显示成 1.000）。
+   */
+  const part2Local = (raw: number): number => {
+    const v = (raw - PART_SPLIT) / (1 - PART_SPLIT);
+    return Math.min(1, Math.max(0, Math.round(v * 1e9) / 1e9));
+  };
+  let part1Host: HTMLElement;
+  let part2Host: HTMLElement;
+  let part2Panel: HTMLElement;
 
   /** 当前分割数：先长到用户选的 n，第四幕再推到上限 */
   const currentN = (t: number): number => {
@@ -215,14 +255,20 @@ export function createRiemannViz(): VizDefinition {
     keyframes: KEYFRAMES,
     intro: INTRO,
 
-    // 这一节讲完之后往下走：黎曼和「收敛」到底是什么意思，
-    // 以及什么样的函数根本收敛不了。
+    // 第一部分讲完 → 直接送到第二部分。不换路由，还是这一节。
+    // showAt 略早于分割点：第一部分最后一帧还在屏幕上时按钮就已经淡入；
+    // hideAt 略晚于 at：跳过去之后按钮立刻收起，不会赖在第二部分里。
     deeper: {
-      contentId: 'integrability',
+      at: PART_SPLIT + 0.004,
       label: '深入：可积是什么意思',
+      // 在最后一幕的后半段淡入（约 1 秒），播完时它已经稳稳在那儿了。
+      // 若等到 PART_SPLIT 才显示，画面同一帧就切到第二部分，按钮根本来不及看见。
+      showAt: PART_SPLIT - 0.035,
+      // 越过分割点就收起 —— 那时已经在第二部分，这个入口没有意义了
+      hideAt: PART_SPLIT,
     },
 
-    mountFigure(host: HTMLElement): void {
+    mountFigure(host: HTMLElement, ctx: VizContext): void {
       const svg = el('svg', {
         class: 'viz__plot', viewBox: `0 0 ${VIEW_W} ${VIEW_H}`,
         role: 'img', 'aria-label': '函数曲线、矩形逼近与误差示意',
@@ -271,11 +317,20 @@ export function createRiemannViz(): VizDefinition {
       // 层级：底纹 → 曲线 → 下和 → 误差缝 → 上和 → 刻度
       shiftWrap.append(gridLayer, curveLayer, lowerLayer, gapLayer, upperLayer, tickLayer);
       svg.append(shiftWrap);
-      host.append(svg);
+
+      // 第一部分装进自己的容器，方便和第二部分整体切换
+      part1Host = h('div', { class: 'viz__part viz__part--riemann is-active' });
+      part1Host.append(svg);
+      host.append(part1Host);
+
+      // 第二部分：那套实现自己会建 <svg>，这里只给一个容器
+      part2Host = h('div', { class: 'viz__part viz__part--integrability' });
+      host.append(part2Host);
+      part2.mountFigure(part2Host, ctx);
     },
 
     mountPanel(host: HTMLElement, ctx: VizContext): void {
-      panelEl = h('div', { class: 'viz__panel-a' });
+      panelEl = h('div', { class: 'viz__panel-a viz__part-panel is-active' });
       panelEl.innerHTML = `
         <label class="viz__n-label" for="viz-n">分割数 n</label>
         <div class="viz__n-row">
@@ -320,12 +375,33 @@ export function createRiemannViz(): VizDefinition {
         // 否则改了 n 图上没反应。
         // 推到 T_KF_FINE 而不是 T_RECT_IN_END：后者是「一个矩形」那一幕，
         // 在那儿 currentN 恒为 1，拖到 40 也只会显示 1 个矩形。
-        if (ctx.progress < T_KF_FINE) ctx.setProgress(T_KF_FINE);
+        // 进度是全局的（两部分共用），本地 T_KF_FINE 要乘上第一部分的占比。
+        const target = T_KF_FINE * PART_SPLIT;
+        if (ctx.progress < target) ctx.setProgress(target);
         else ctx.setProgress(ctx.progress);
       });
+
+      // 第二部分的面板：同样交给 integrability 自己建，这里只给容器
+      part2Panel = h('div', { class: 'viz__panel-a viz__part-panel' });
+      host.append(part2Panel);
+      part2.mountPanel?.(part2Panel, ctx);
     },
 
-    update(t: number): void {
+    update(raw: number): void {
+      // 全局进度切成两段：前半段喂第一部分，后半段喂第二部分。
+      const inPart2 = raw >= PART_SPLIT;
+      part1Host.classList.toggle('is-active', !inPart2);
+      part2Host.classList.toggle('is-active', inPart2);
+      panelEl.classList.toggle('is-active', !inPart2);
+      part2Panel.classList.toggle('is-active', inPart2);
+
+      if (inPart2) {
+        part2.update(part2Local(raw));
+        return;
+      }
+
+      // 第一部分内部仍按本地 0..1 计算 —— 下面的节奏常量一个都不用改
+      const t = Math.min(1, raw / PART_SPLIT);
       const n = currentN(t);
       if (n !== drawnN) redraw(n);
 
@@ -375,6 +451,9 @@ export function createRiemannViz(): VizDefinition {
       sumExact.parentElement?.classList.toggle('is-converged', err < 0.02);
     },
 
-    caption: captionFor,
+    caption: (raw: number): string =>
+      raw >= PART_SPLIT
+        ? part2.caption(part2Local(raw))
+        : captionFor(Math.min(1, raw / PART_SPLIT)),
   };
 }

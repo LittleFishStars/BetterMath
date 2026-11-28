@@ -103,11 +103,20 @@ export class VizShell {
     // 「深入」入口紧挨在进度条上方居中。它属于「这一节讲完之后去哪」，
     // 所以由外壳统一摆放，definition 只声明目标条目 id。
     const deeperEntry = def.deeper;
-    if (deeperEntry && onDeeper) {
+    const canGo = !!deeperEntry && (deeperEntry.at !== undefined || (!!deeperEntry.contentId && !!onDeeper));
+    if (deeperEntry && canGo) {
       const deeper = h('div', { class: 'viz__deeper' });
       const button = h('button', { class: 'viz__deeper-btn', type: 'button' });
       button.textContent = deeperEntry.label ?? '深入';
-      button.addEventListener('click', () => onDeeper(deeperEntry.contentId));
+      button.addEventListener('click', () => {
+        // 本节内部往后跳（同一节分两部分）优先于换内容条目
+        if (deeperEntry.at !== undefined) {
+          this.timeline.stop();
+          this.timeline.setT(deeperEntry.at);
+          return;
+        }
+        if (deeperEntry.contentId) onDeeper?.(deeperEntry.contentId);
+      });
       deeper.append(button);
       this.deeper = deeper;
       this.root.append(deeper);
@@ -184,7 +193,13 @@ export class VizShell {
     this.caption.style.opacity = String(captionOpacity);
 
     // 讲完了才把「深入」入口放出来；拖回前面会自然收起。
-    this.deeper?.classList.toggle('is-shown', t >= T_DEEPER_SHOW);
+    // hideAt 用于「本节内部跳转」：跳过去之后这一段已经不属于当前进度，按钮该消失。
+    const deeper = this.def.deeper;
+    if (this.deeper && deeper) {
+      const showAt = deeper.showAt ?? T_DEEPER_SHOW;
+      const hideAt = deeper.hideAt ?? Number.POSITIVE_INFINITY;
+      this.deeper.classList.toggle('is-shown', t >= showAt && t < hideAt);
+    }
   }
 
   setProgress(t: number): void {

@@ -1190,6 +1190,29 @@
    段的宽度由 flex-grow 按「这段要播多少秒」分配 —— 长度与时长成正比，
    于是进度条的位置就等于时间轴上的位置，拖到哪儿看到的就是那一刻。 */
 
+/* ── 同一节里的两个部分 ──
+   「定积分与黎曼和」前半段讲逼近、后半段讲可积性，两者共用一条进度条。
+   图形与面板各自成对，按进度整体切换 —— 两部分的坐标系不同，
+   同时显示只会互相干扰。 */
+.viz__part {
+  display: none;
+}
+
+.viz__part.is-active {
+  display: block;
+}
+
+/* 面板沿用的是 .viz__panel-a 的 flex column 布局，别退回 block */
+.viz__part-panel {
+  display: none;
+}
+
+.viz__part-panel.is-active {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
 /* ── 「深入」入口 ──
    进度讲完之后才出现，位置在进度条正上方居中。
    用 max-height 过渡而不是 display 切换：出现时不会把进度条往下顶一格。 */

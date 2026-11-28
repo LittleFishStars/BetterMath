@@ -27,10 +27,28 @@ export interface VizContext {
  * 于进度条上方居中淡入按钮；不写就完全没有这个按钮。
  */
 export interface DeeperEntry {
-  /** 目标内容条目的 id（必须在同一个章节里） */
-  contentId: string;
+  /**
+   * 目标内容条目的 id（必须在同一个章节里）。
+   * 与 `at` 二选一 —— 给了 at 就在本节内部往后跳。
+   */
+  contentId?: string;
+
+  /**
+   * 跳到**本可视化内部**的某个进度。
+   *
+   * 用在「同一节分两部分」的场合：前半段讲完，按钮把人送到后半段的起点，
+   * 路由不变、还是同一条内容。
+   */
+  at?: number;
+
   /** 按钮文字，缺省「深入」 */
   label?: string;
+
+  /** 进度到这里才显示，缺省 0.985（即「讲完了」） */
+  showAt?: number;
+
+  /** 进度到这里就收起。缺省不收 —— 用于「点过之后不该再留着」的跳转按钮 */
+  hideAt?: number;
 }
 
 export interface VizDefinition {
