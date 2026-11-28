@@ -84,8 +84,17 @@ const T_KF_CONCLUDE = 0.86;
 const T_A_IN_START = 0.02;
 const T_A_IN_END = 0.12;
 
-/** 场景一 → 二、二 → 三、三 → 四的交叉起点 */
-const T_AB_START = T_KF_DIRICHLET - CROSSFADE;
+/**
+ * 场景一 → 二 的交叉**从关键帧 0.45 才开始**，到 0.5 完成。
+ *
+ * 别处都是「边界前开始、边界处完成」，唯独这里要反过来：
+ * 「判据」讲完要停在 0.45 让用户调 ε，那一刻画面上必须是场景一的完整结果，
+ * 不能已经淡成一半。所以把切换整体挪到暂停点之后。
+ */
+const T_AB_START = T_KF_DIRICHLET;
+const T_AB_END = T_KF_DIRICHLET + 0.05;
+
+/** 其余两处仍按「边界前开始、边界处完成」 */
 const T_BC_START = T_KF_UNBOUNDED - CROSSFADE;
 const T_CD_START = T_KF_CONCLUDE - CROSSFADE;
 
@@ -197,14 +206,17 @@ export function createIntegrabilityViz(): VizPart {
   /**
    * 场景一当前该画多少段。
    *
-   * 「问题」那一幕固定 1 个矩形 —— 夹层最厚，问题最直观。
-   * 进入「判据」之后改由 ε 决定：用户拖 ε，n 跟着变，
-   * 这正是「无论要多小，总能报出一个 n」的操作版。
+   * 目标值由 ε 决定（用户拖滑块，n 跟着变 —— 这就是「无论要多小，
+   * 总能报出一个 n」的操作版）。第一幕期间从 1 平滑长到这个目标：
+   * 播完时画面正好停在「判据」的起点，不会从 1 个矩形突然跳成几十个。
    */
   const nForDisplay = (t: number): number => {
-    if (t < T_KF_JUDGE) return 1;
-    const found = minNForGap(eps);
-    return Math.min(A_N_DRAW_CAP, found ?? A_N_DRAW_CAP);
+    const target = Math.min(A_N_DRAW_CAP, minNForGap(eps) ?? A_N_DRAW_CAP);
+    if (t < T_KF_JUDGE) {
+      const p = smoothstep(0, T_KF_JUDGE, t);
+      return Math.max(1, Math.round(1 + (target - 1) * p));
+    }
+    return target;
   };
 
   /** 重画场景一的矩形与夹层 */
@@ -250,7 +262,9 @@ export function createIntegrabilityViz(): VizPart {
   // 说明文字里的 $...$ 由 KaTeX 渲染（见 math-text.ts）
   const captionFor = (t: number): string => {
     if (t < T_KF_JUDGE) return '黎曼和给了一个数。但要称它「积分」，得先说明什么时候它真的收敛。';
-    if (t < T_KF_DIRICHLET) {
+    // 用 T_AB_END（0.5）而不是关键帧 0.45：A→B 的切换挪到了 0.45 之后，
+    // 停在 0.45 那一刻画面上还是判据那一幕，文字不能先跑掉
+    if (t < T_AB_END) {
       return (
         '判据是达布条件：把区间切细，上和的夹层能压到任意小，' +
         '即 $\\overline{\\int} f=\\underline{\\int} f$。'
@@ -274,13 +288,18 @@ export function createIntegrabilityViz(): VizPart {
     intro: INTRO,
 
     /**
-     * 进入每一幕时自动暂停。
+     * 每一幕**演完**时自动暂停（不是演到一半就停）。
      *
      * 这一部分的核心是「自己动手调 ε 感受一下」，自动播过去等于白讲：
-     * 用户还没来得及拖滑块，画面已经切走了。所以判据、两个反例各停一次，
-     * 等用户点播放再继续。
+     * 用户还没来得及拖滑块，画面已经切走了。
+     *
+     * 注意暂停点不等于关键帧：
+     *   · 关键帧 = 这一幕的**开始**（点它跳过去看这一幕的内容）
+     *   · 暂停点 = 这一幕**演完、下一幕还没淡入**的那一刻
+     * 所以后两个点取的是交叉淡化的起点（T_BC_START / T_CD_START），
+     * 那里前一幕还是完整的，画面正好停在它的结论上。
      */
-    pauseAt: [T_KF_JUDGE, T_KF_DIRICHLET, T_KF_UNBOUNDED],
+    pauseAt: [T_KF_DIRICHLET, T_BC_START, T_CD_START],
 
     mountFigure(host: HTMLElement): void {
       const svg = el('svg', {
@@ -400,7 +419,7 @@ export function createIntegrabilityViz(): VizPart {
       if (n !== drawnN) redrawA(n);
 
       const aOpacity =
-        smoothstep(T_A_IN_START, T_A_IN_END, t) * (1 - smoothstep(T_AB_START, T_KF_DIRICHLET, t));
+        smoothstep(T_A_IN_START, T_A_IN_END, t) * (1 - smoothstep(T_AB_START, T_AB_END, t));
       sceneA.style.opacity = String(aOpacity);
 
       // 夹层随分割加细而变薄，所以上和的虚线也要一起淡 ——
@@ -410,7 +429,7 @@ export function createIntegrabilityViz(): VizPart {
 
       // ── 场景二 ──
       const bOpacity =
-        smoothstep(T_AB_START, T_KF_DIRICHLET, t) * (1 - smoothstep(T_BC_START, T_KF_UNBOUNDED, t));
+        smoothstep(T_AB_START, T_AB_END, t) * (1 - smoothstep(T_BC_START, T_KF_UNBOUNDED, t));
       sceneB.style.opacity = String(bOpacity);
 
       // ── 场景三 ──
@@ -434,7 +453,7 @@ export function createIntegrabilityViz(): VizPart {
       panelEl.style.pointerEvents = panelOpacity < 0.5 ? 'none' : 'auto';
       epsValue.textContent = fmtEps(eps);
 
-      if (t < T_KF_DIRICHLET) {
+      if (t < T_AB_END) {
         // 场景一：能积。给定 ε，报出需要的 n —— 这就是「总能达到」
         const need = minNForGap(eps);
         // 数字按**真实需要的 n** 算，不是图上画的那 128 段 ——
@@ -447,9 +466,11 @@ export function createIntegrabilityViz(): VizPart {
         metricNote.textContent =
           need === null
             ? 'ε 太小，n 到上限仍不满足'
-            : calcN > A_N_DRAW_CAP
-              ? `实际差 ${fmtEps(upper - lower)} ≤ ε ✓（图上按 ${A_N_DRAW_CAP} 段画）`
-              : `实际差 ${fmtEps(upper - lower)} ≤ ε ✓`;
+            : t < T_KF_JUDGE
+              ? `正在细分到 ${need} 段`
+              : calcN > A_N_DRAW_CAP
+                ? `实际差 ${fmtEps(upper - lower)} ≤ ε ✓（图上按 ${A_N_DRAW_CAP} 段画）`
+                : `实际差 ${fmtEps(upper - lower)} ≤ ε ✓`;
         upperValue.textContent = fmt(upper);
         lowerValue.textContent = fmt(lower);
         gapValue.textContent = fmtEps(upper - lower);
