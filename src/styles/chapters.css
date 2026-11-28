@@ -863,9 +863,10 @@
 
   max-width: 1320px;
   margin: 0 auto;
-  padding: clamp(1.2rem, 3vh, 2.2rem) clamp(1.1rem, 4vw, 3rem) clamp(1.4rem, 3vh, 2rem);
+  /* 底部留白给得足一些：进度条贴着视口底边会显得「掉出去了」，
+     往上收一档，整组内容在垂直方向上也更居中 */
+  padding: clamp(1.2rem, 3vh, 2.2rem) clamp(1.1rem, 4vw, 3rem) clamp(2.8rem, 8vh, 5rem);
 
-  /* 减去 header 高度，让进度条正好落在首屏底部 */
   min-height: calc(100dvh - var(--bm-head-h, 76px));
 }
 
@@ -923,10 +924,6 @@
   gap: clamp(1.2rem, 3vw, 2.2rem);
   align-items: center;
   min-height: 0;
-}
-
-.viz__figure {
-  min-width: 0;
 }
 
 .viz__plot {
@@ -1120,16 +1117,21 @@
   color: var(--bm-accent);
 }
 
-/* ── 进度条 ── */
+/* ── 进度条 ───────────────────────────────────────────────
+   分段的胶囊：每段一个独立圆角条，段与段之间断开。
+   段的宽度由 flex-grow 按「这段要播多少秒」分配 —— 长度与时长成正比，
+   于是进度条的位置就等于时间轴上的位置，拖到哪儿看到的就是那一刻。 */
+
 .viz__timeline {
   flex: none;
   display: flex;
   align-items: center;
-  gap: clamp(0.7rem, 1.6vw, 1.1rem);
-  padding: 0.55rem 0 0.2rem;
+  gap: clamp(0.6rem, 1.4vw, 0.95rem);
+  padding: 0.2rem 0 0.4rem;
 }
 
-.viz__play {
+.viz__play,
+.viz__reset {
   flex: none;
   display: grid;
   place-items: center;
@@ -1139,16 +1141,20 @@
   border: 0;
   border-radius: 50%;
   background: rgba(28, 111, 196, 0.1);
+  color: var(--bm-accent);
   cursor: pointer;
   transition: background-color 200ms ease, transform 200ms ease;
 }
 
 .viz__play:hover,
-.viz__play:focus-visible {
+.viz__play:focus-visible,
+.viz__reset:hover,
+.viz__reset:focus-visible {
   background: rgba(28, 111, 196, 0.18);
 }
 
-.viz__play:active {
+.viz__play:active,
+.viz__reset:active {
   transform: scale(0.94);
 }
 
@@ -1172,40 +1178,78 @@
     linear-gradient(var(--bm-accent), var(--bm-accent)) 100% 0 / 3.5px 100% no-repeat;
 }
 
-.viz__scrub-wrap {
-  position: relative;
-  flex: 1;
-  /* 给上方的关键帧标记留出高度，否则它们会和滑块的圆点叠在一起 */
-  padding-top: 24px;
+.viz__reset-icon {
+  width: 17px;
+  height: 17px;
 }
 
-/* ── 关键帧标记 ── */
+/* ── 轨道 ── */
+.viz__track {
+  position: relative;
+  flex: 1;
+  /* 上方留出圆点的位置，但要贴得近 —— 留太多条和点会显得是两个东西 */
+  padding-top: 13px;
+  cursor: pointer;
+  touch-action: none;
+  outline: none;
+}
+
+.viz__track:focus-visible {
+  box-shadow: 0 0 0 3px rgba(28, 111, 196, 0.18);
+  border-radius: 10px;
+}
+
+.viz__segments {
+  display: flex;
+  gap: 7px;
+  height: 8px;
+}
+
+.viz__segment {
+  position: relative;
+  flex: 1 1 0;
+  border-radius: 999px;
+  background: rgba(28, 111, 196, 0.14);
+  overflow: hidden;
+}
+
+.viz__fill {
+  width: 0;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3b8fe0, #1c6fc4);
+  transition: width 80ms linear;
+}
+
+/* ── 关键帧圆点 ── */
 .viz__marks {
   position: absolute;
   left: 0;
   right: 0;
   top: 0;
-  height: 20px;
+  height: 13px;
+  pointer-events: none;
 }
 
 .viz__mark {
   position: absolute;
-  top: 0;
-  width: 11px;
-  height: 11px;
+  top: 2px;
+  width: 9px;
+  height: 9px;
   padding: 0;
   transform: translateX(-50%);
-  border: 1.5px solid rgba(28, 111, 196, 0.35);
+  border: 1.5px solid rgba(28, 111, 196, 0.4);
   border-radius: 50%;
   background: #fff;
   cursor: pointer;
+  pointer-events: auto;
   transition: border-color 200ms ease, background-color 200ms ease, transform 200ms ease;
 }
 
 .viz__mark:hover,
 .viz__mark:focus-visible {
   border-color: var(--bm-accent);
-  transform: translateX(-50%) scale(1.18);
+  transform: translateX(-50%) scale(1.25);
 }
 
 .viz__mark.is-active {
@@ -1213,50 +1257,33 @@
   background: var(--bm-accent);
 }
 
-/* ── 自定义 range ── */
-.viz__scrub,
-.viz__n-range {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 4px;
+/* ── 导入语 ──
+   开场那句话盖在图的位置上，随后淡出让位给曲线。 */
+.viz__figure {
+  position: relative;
+  min-width: 0;
+}
+
+.viz__intro {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 0 clamp(1rem, 4vw, 3rem);
+  pointer-events: none;
+}
+
+.viz__intro-text {
+  max-width: 30em;
   margin: 0;
-  border-radius: 999px;
-  background: rgba(28, 111, 196, 0.16);
-  cursor: pointer;
-  outline: none;
+  font-size: clamp(0.92rem, 1.6vw, 1.06rem);
+  line-height: 1.95;
+  letter-spacing: 0.015em;
+  color: var(--bm-text);
+  text-align: center;
 }
 
-.viz__scrub::-webkit-slider-thumb,
-.viz__n-range::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  border: 0;
-  border-radius: 50%;
-  background: var(--bm-accent);
-  box-shadow: 0 1px 4px rgba(18, 56, 110, 0.35);
-  cursor: pointer;
-}
-
-.viz__scrub::-moz-range-thumb,
-.viz__n-range::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border: 0;
-  border-radius: 50%;
-  background: var(--bm-accent);
-  box-shadow: 0 1px 4px rgba(18, 56, 110, 0.35);
-  cursor: pointer;
-}
-
-.viz__scrub:focus-visible,
-.viz__n-range:focus-visible {
-  box-shadow: 0 0 0 3px rgba(28, 111, 196, 0.2);
-}
-
-/* ── 窄屏微调 ─────────────────────────────────────────── */
+/* ── 窄屏微调 ─────────────────────────────────────────── *//* ── 窄屏微调 ─────────────────────────────────────────── */
 
 @media (max-width: 40rem) {
   .chapter-head__inner {

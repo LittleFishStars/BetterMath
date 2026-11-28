@@ -1,14 +1,16 @@
 /**
  * 黎曼和的数学部分
  *
- * 被积函数选了一条**单调递增**的曲线。这是有意的：
- * 单调时「上和」（取每个小区间右端点的值）处处不低于曲线、
- * 「下和」（取左端点）处处不高于曲线，两者的差一眼就能看出来。
- * 换成有起伏的函数，矩形会时而高出时而低于曲线，反而看不清在逼近什么。
+ * 被积函数用一条**有起伏**的正弦曲线：
  *
- * f(x) = 0.9 + 0.55x + 0.18x²  在 [0, 2.6] 上从 0.9 增到 3.55，
- * 精确积分 5.2536 —— 数字不规整，正合适：读者看到上/下和从两侧夹过来，
- * 而不是"一开始就差不多"。
+ *   f(x) = 1.6 + 0.85·sin(1.9x + 0.35)   在 [0, 2.6] 上
+ *
+ * 早先用的是一条单调递增的曲线，上和/下和分别取右端点与左端点就够了。
+ * 换成不单调之后这个简化不成立了：同一小区间里函数先升后降，
+ * 两端点都不一定是这段上的最高或最低点。所以每个小区间要采样取极值 ——
+ * 上和取区间最大值、下和取最小值，才能保证上和恒不低于曲线、下和恒不高于曲线。
+ *
+ * 值域约 [0.75, 2.45]，恒正，阴影面积有意义。
  */
 
 /** 积分上限 a */
@@ -16,31 +18,69 @@ export const A = 2.6;
 
 /** 被积函数 */
 export function f(x: number): number {
-  return 0.9 + 0.55 * x + 0.18 * x * x;
+  return 1.6 + 0.85 * Math.sin(1.9 * x + 0.35);
 }
 
-/** 原函数：0.9x + 0.275x² + 0.06x³ */
+/** 原函数：1.6x − (0.85/1.9)·cos(1.9x + 0.35) */
 function antiderivative(x: number): number {
-  return 0.9 * x + 0.275 * x * x + 0.06 * x * x * x;
+  return 1.6 * x - (0.85 / 1.9) * Math.cos(1.9 * x + 0.35);
 }
 
 /** 精确值 ∫₀ᵃ f(x) dx */
 export const EXACT = antiderivative(A) - antiderivative(0);
 
-/** 下和（每个小区间取左端点的函数值） */
+/** 函数在 [0, A] 上的取值范围，用来定 y 轴刻度 */
+export const Y_MAX = 3;
+
+/**
+ * 一个小区间上的最小 / 最大值。
+ *
+ * 采样 16 个点而不是解析求导：小区间足够短，16 个点足以把极值卡在
+ * 千分之一以内；解析法要为每个区间解 sin 的相位，代码复杂度不值当。
+ */
+function extremes(x0: number, x1: number): { min: number; max: number } {
+  const steps = 16;
+  let min = Infinity;
+  let max = -Infinity;
+  for (let i = 0; i <= steps; i += 1) {
+    const y = f(x0 + ((x1 - x0) * i) / steps);
+    if (y < min) min = y;
+    if (y > max) max = y;
+  }
+  return { min, max };
+}
+
+/** 下和：每个小区间取最小值（矩形全部落在曲线下方） */
 export function lowerSum(n: number): number {
   const h = A / n;
   let sum = 0;
-  for (let i = 0; i < n; i += 1) sum += f(i * h);
+  for (let i = 0; i < n; i += 1) {
+    sum += extremes(i * h, (i + 1) * h).min;
+  }
   return sum * h;
 }
 
-/** 上和（每个小区间取右端点的函数值） */
+/** 上和：每个小区间取最大值（矩形全部盖住曲线） */
 export function upperSum(n: number): number {
   const h = A / n;
   let sum = 0;
-  for (let i = 1; i <= n; i += 1) sum += f(i * h);
+  for (let i = 0; i < n; i += 1) {
+    sum += extremes(i * h, (i + 1) * h).max;
+  }
   return sum * h;
+}
+
+/** 每个小区间的上下界，绘图时画矩形用 */
+export function intervalBounds(n: number): Array<{ x0: number; x1: number; min: number; max: number }> {
+  const h = A / n;
+  const out: Array<{ x0: number; x1: number; min: number; max: number }> = [];
+  for (let i = 0; i < n; i += 1) {
+    const x0 = i * h;
+    const x1 = (i + 1) * h;
+    const { min, max } = extremes(x0, x1);
+    out.push({ x0, x1, min, max });
+  }
+  return out;
 }
 
 /**
@@ -56,14 +96,6 @@ export const N_STEPS: readonly number[] = [
 
 /** 第三阶段演示收敛时用的 n —— 到这个量级上和/下和已与精确值肉眼无差 */
 export const N_MAX = N_STEPS[N_STEPS.length - 1];
-
-/** 把 0..1 的进度换算成 n：1 → N_MAX，按对数分布，前段变化慢、后段快 */
-export function nFromProgress(p: number): number {
-  const clamped = Math.min(1, Math.max(0, p));
-  // 对数插值：进度 0 时 n=1，进度 1 时 n=N_MAX
-  const value = Math.exp(Math.log(1) + (Math.log(N_MAX) - Math.log(1)) * clamped);
-  return Math.max(1, Math.round(value));
-}
 
 /** 数字格式化：面积值统一保留三位小数 */
 export function fmt(value: number): string {
