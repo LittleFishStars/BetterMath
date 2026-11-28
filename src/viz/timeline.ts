@@ -276,6 +276,18 @@ export class Timeline {
   play(): void {
     if (this.playing) return;
     if (this.t >= 0.999) this.t = 0;
+
+    // 刚在某个暂停点停下时，先把进度往外推一丝再开播。
+    //
+    // 停在暂停点上时 `before === pause`，严格小于不成立，本来就不会再停；
+    // 但只要这个值因为任何一次换算落成 0.1799999…（暂停点 0.18），
+    // 第一帧立刻就会被判成「又跨过了一次」，表现为「点了播放马上又停」。
+    // 推过那一点就没有这个边界可言了。
+    if (this.pauseAt.some((p) => Math.abs(this.t - p) < 1e-9)) {
+      this.t = Math.min(1, this.t + 1e-6);
+      this.paintTrack();
+    }
+
     this.playing = true;
     this.playBtn.classList.add('is-playing');
     this.playBtn.setAttribute('aria-label', '暂停动画');
@@ -283,7 +295,13 @@ export class Timeline {
 
     const step = (now: number): void => {
       if (!this.playing) return;
-      const dt = Math.min(64, now - this.lastFrame); // 切后台回来别一下跳完
+      // dt 必须夹在 [0, 64] 之间：
+      //   · 上界 64ms —— 切后台回来别一下跳完；
+      //   · 下界 0 —— rAF 的时间戳和 performance.now() 不总是同源，
+      //     第一帧可能算出负值。负的步长会让进度往回退，
+      //     退到暂停点之前，下一帧再跨过去就又触发一次暂停 ——
+      //     表现为「自动暂停后点播放，马上又停」。
+      const dt = Math.min(64, Math.max(0, now - this.lastFrame));
       this.lastFrame = now;
       const before = this.t;
       const seconds = this.tToTime(this.t) + (dt / 1000) * SPEEDS[this.speedIndex];
@@ -292,6 +310,7 @@ export class Timeline {
       // 跨过某个暂停点就停在该点，把控制权交回用户。
       // 用「before < p <= t」判断，暂停后再点播放不会立刻又停（before 已等于 p）。
       const pause = this.pauseAt.find((p) => before < p && this.t >= p);
+
       if (pause !== undefined) {
         this.t = pause;
         this.paintTrack();
