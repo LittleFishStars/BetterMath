@@ -22,7 +22,7 @@ import {
   A,
   EXACT,
   N_MAX,
-  N_STEPS,
+  N_MIN,
   Y_MAX,
   f,
   fmt,
@@ -93,6 +93,9 @@ const T_TEXT_IN_END = 1;
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
 
+/** 播放倍速档位 */
+const SPEEDS = [0.5, 1, 1.5, 2] as const;
+
 /** 把 x ∈ [0, A] 映射到 viewBox 的横坐标 */
 function px(x: number): number {
   return PLOT.left + (x / A) * (PLOT.right - PLOT.left);
@@ -157,8 +160,8 @@ export class RiemannView {
   // ── 状态 ──
   /** 内部进度 0..1 */
   private t = 0;
-  /** 用户在滑动条上选的 n（索引 N_STEPS） */
-  private nIndex = 5; // 默认 8 段
+  /** 用户在滑动条上选的 n */
+  private userN = 8;
   /** 上一帧实际画出的 n，用来判断要不要重建矩形 */
   private drawnN = -1;
   private playing = false;
@@ -184,6 +187,10 @@ export class RiemannView {
   private readonly fills: HTMLElement[] = [];
   private readonly playBtn: HTMLButtonElement;
   private readonly resetBtn: HTMLButtonElement;
+  private readonly nextBtn: HTMLButtonElement;
+  private readonly speedBtn: HTMLButtonElement;
+  /** 倍速档位索引 */
+  private speedIndex = 1;
   private readonly marks: HTMLElement[] = [];
   /** 各关键帧在轨道上的像素位置（相对 track 左边缘），由实测得到 */
   private markPositions: number[] = [];
@@ -221,8 +228,8 @@ export class RiemannView {
             <label class="viz__n-label" for="viz-n">分割数 n</label>
             <div class="viz__n-row">
               <input class="viz__n-range" id="viz-n" type="range"
-                     min="0" max="${N_STEPS.length - 1}" step="1" value="${this.nIndex}">
-              <output class="viz__n-value" for="viz-n">8</output>
+                     min="${N_MIN}" max="${N_MAX}" step="1" value="${this.userN}">
+              <output class="viz__n-value" for="viz-n">${this.userN}</output>
             </div>
             <dl class="viz__sums">
               <div class="viz__sum viz__sum--lower">
@@ -248,9 +255,19 @@ export class RiemannView {
       </div>
 
       <div class="viz__timeline">
-        <button class="viz__play" type="button" aria-label="播放动画">
-          <span class="viz__play-icon" aria-hidden="true"></span>
-        </button>
+        <div class="viz__controls">
+          <button class="viz__play" type="button" aria-label="播放动画">
+            <span class="viz__play-icon" aria-hidden="true"></span>
+          </button>
+          <button class="viz__reset" type="button" aria-label="回到开头">
+            <svg class="viz__reset-icon" viewBox="0 0 24 24" aria-hidden="true"
+                 fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+          </button>
+        </div>
 
         <div class="viz__track" role="slider" tabindex="0"
              aria-label="动画进度" aria-valuemin="0" aria-valuemax="${TOTAL_SECONDS}"
@@ -259,14 +276,17 @@ export class RiemannView {
           <div class="viz__marks"></div>
         </div>
 
-        <button class="viz__reset" type="button" aria-label="回到开头">
-          <svg class="viz__reset-icon" viewBox="0 0 24 24" aria-hidden="true"
-               fill="none" stroke="currentColor" stroke-width="2"
-               stroke-linecap="round" stroke-linejoin="round">
-            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-            <path d="M3 3v5h5" />
-          </svg>
-        </button>
+        <div class="viz__controls viz__controls--end">
+          <button class="viz__next" type="button" aria-label="下一节">
+            <svg class="viz__next-icon" viewBox="0 0 24 24" aria-hidden="true"
+                 fill="none" stroke="currentColor" stroke-width="2"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <path d="M5 5l10 7-10 7z" fill="currentColor" stroke="none" />
+              <line x1="19" y1="5" x2="19" y2="19" />
+            </svg>
+          </button>
+          <button class="viz__speed" type="button" aria-label="播放倍速">1×</button>
+        </div>
       </div>
     `;
 
@@ -285,6 +305,8 @@ export class RiemannView {
     this.track = q<HTMLElement>('.viz__track');
     this.playBtn = q<HTMLButtonElement>('.viz__play');
     this.resetBtn = q<HTMLButtonElement>('.viz__reset');
+    this.nextBtn = q<HTMLButtonElement>('.viz__next');
+    this.speedBtn = q<HTMLButtonElement>('.viz__speed');
 
     this.curveLayer = el('g', { class: 'viz__curve-layer' });
     this.areaPath = el('path', { d: areaPath(), class: 'viz__area' });
@@ -407,7 +429,7 @@ export class RiemannView {
     this.root.querySelector('.viz__back')?.addEventListener('click', () => this.onBack());
 
     this.nRange.addEventListener('input', () => {
-      this.nIndex = Number(this.nRange.value);
+      this.userN = Number(this.nRange.value);
       // 拖滑动条却没到关键帧 2 时，图上还看不出分割 —— 直接把进度推过去，
       // 否则「改了 n 却没反应」。正在播放时不打断，让它自然推进。
       if (!this.playing && this.t < T_KF_PANEL) {
@@ -425,6 +447,20 @@ export class RiemannView {
     this.resetBtn.addEventListener('click', () => {
       this.stop();
       this.setT(0);
+    });
+
+    // 下一节：跳到当前之后的下一个关键帧，到底了就停在末帧
+    this.nextBtn.addEventListener('click', () => {
+      this.stop();
+      const next = KEYFRAMES.find((k) => k > this.t + 0.005);
+      this.setT(next ?? 1);
+    });
+
+    // 倍速：循环切换 0.5× / 1× / 1.5× / 2×
+    this.speedBtn.addEventListener('click', () => {
+      this.speedIndex = (this.speedIndex + 1) % SPEEDS.length;
+      this.speedBtn.textContent = `${SPEEDS[this.speedIndex]}×`;
+      this.speedBtn.setAttribute('aria-label', `播放倍速 ${SPEEDS[this.speedIndex]} 倍`);
     });
 
     // 拖动进度条：自己实现，因为分段之间有间隙，
@@ -497,7 +533,7 @@ export class RiemannView {
       const dt = Math.min(64, now - this.lastFrame); // 切后台回来别一下跳完
       this.lastFrame = now;
       // 按秒推进，与进度条的分段宽度一致
-      const seconds = tToTime(this.t) + dt / 1000;
+      const seconds = tToTime(this.t) + (dt / 1000) * SPEEDS[this.speedIndex];
       this.t = seconds >= TOTAL_SECONDS ? 1 : timeToT(seconds);
       this.update(this.t);
       if (this.t >= 1) {
@@ -526,13 +562,13 @@ export class RiemannView {
 
   /** 当前应显示的 n */
   private currentN(): number {
-    const userN = N_STEPS[this.nIndex];
+    const target = this.userN;
     if (this.t <= T_KF_PANEL) {
       const p = smoothstep(T_N_START, T_KF_PANEL, this.t);
-      return Math.max(1, Math.round(1 + (userN - 1) * p));
+      return Math.max(1, Math.round(1 + (target - 1) * p));
     }
     const p = smoothstep(T_KF_PANEL, T_CONVERGE_END, this.t);
-    return Math.max(1, Math.round(userN + (N_MAX - userN) * p));
+    return Math.max(1, Math.round(target + (N_MAX - target) * p));
   }
 
   /** 重画矩形与刻度（n 变化时才调用） */
@@ -675,10 +711,11 @@ export class RiemannView {
     this.explain.style.transform = `translateY(${((1 - panelB) * 12).toFixed(1)}px)`;
     this.explain.style.pointerEvents = panelB < 0.5 ? 'none' : 'auto';
 
-    // 标签跟着「当前实际画出的 n」走，而不是滑动条上的设定值。
-    // 之前只显示设定值：进度条停在关键帧 2 之前时图上只有 5 段、
-    // 标签却写着 8，看起来像算错了。
+    // 标签与滑块都跟着「当前实际画出的 n」走。
+    // 只更新标签的话，收敛阶段数字涨到 62、滑块却还停在 48 上，
+    // 看起来像两个控件各说各话。
     this.nLabel.textContent = String(n);
+    this.nRange.value = String(n);
 
     // 三个面积值
     const lower = lowerSum(n);

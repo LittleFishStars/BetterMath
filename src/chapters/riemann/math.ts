@@ -83,19 +83,18 @@ export function intervalBounds(n: number): Array<{ x0: number; x1: number; min: 
   return out;
 }
 
-/**
- * 滑动条可选的 n。
- *
- * 不是连续的 1..128：滑动条上一格对应一个值，「越往右一格越多」才有手感。
- * 前段密、后段疏 —— 1 到 8 之间每格都看得出变化，64 以后每格加几十个矩形，
- * 反正肉眼已经分辨不出单个矩形了。
- */
-export const N_STEPS: readonly number[] = [
-  1, 2, 3, 4, 6, 8, 12, 16, 24, 32, 48, 64, 96, 128,
-];
+/** n 的上限 —— 到这个量级上和/下和已与精确值肉眼无差 */
+export const N_MAX = 128;
 
-/** 第三阶段演示收敛时用的 n —— 到这个量级上和/下和已与精确值肉眼无差 */
-export const N_MAX = N_STEPS[N_STEPS.length - 1];
+/**
+ * 滑动条用连续的 1..N_MAX。
+ *
+ * 早先是离散档位（1,2,3,4,6,8,12…），想着「越往右一格越多」手感更好；
+ * 但收敛阶段 n 会从用户选的值一路涨到 128，滑块若停在档位上，
+ * 就会出现「数字已经是 62、滑块还在 48」这种对不上的情况。
+ * 连续之后滑块位置与标签永远是同一个数。
+ */
+export const N_MIN = 1;
 
 /** 数字格式化：面积值统一保留三位小数 */
 export function fmt(value: number): string {

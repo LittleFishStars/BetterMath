@@ -1130,8 +1130,18 @@
   padding: 0.2rem 0 0.4rem;
 }
 
+/* 左右两组控件，轨道居中撑开 */
+.viz__controls {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0.38rem;
+}
+
 .viz__play,
-.viz__reset {
+.viz__reset,
+.viz__next,
+.viz__speed {
   flex: none;
   display: grid;
   place-items: center;
@@ -1149,13 +1159,37 @@
 .viz__play:hover,
 .viz__play:focus-visible,
 .viz__reset:hover,
-.viz__reset:focus-visible {
+.viz__reset:focus-visible,
+.viz__next:hover,
+.viz__next:focus-visible,
+.viz__speed:hover,
+.viz__speed:focus-visible {
   background: rgba(28, 111, 196, 0.18);
 }
 
 .viz__play:active,
-.viz__reset:active {
+.viz__reset:active,
+.viz__next:active,
+.viz__speed:active {
   transform: scale(0.94);
+}
+
+/* 倍速是文字按钮，做成胶囊而不是圆 */
+.viz__speed {
+  width: auto;
+  min-width: 44px;
+  padding: 0 0.62rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.79rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.01em;
+}
+
+.viz__next-icon {
+  width: 17px;
+  height: 17px;
 }
 
 /* 播放三角 / 暂停双竖线，用 CSS 画，不引图标库 */
@@ -1344,6 +1378,26 @@
      留 170 会让它溢出到进度条上，这里按实际内容给足 */
   .viz__panel {
     min-height: 212px;
+  }
+
+  /* 窄屏：左右两组按钮会把轨道挤到 165px，三段的圆点几乎贴在一起。
+     改成两行 —— 进度条独占一行，按钮分列下方。 */
+  .viz__timeline {
+    flex-wrap: wrap;
+    gap: 0.55rem;
+  }
+
+  .viz__track {
+    order: -1;
+    flex: 1 0 100%;
+  }
+
+  .viz__controls {
+    flex: 1;
+  }
+
+  .viz__controls--end {
+    justify-content: flex-end;
   }
 
   .viz__panel-a {
